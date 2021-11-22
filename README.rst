@@ -1,12 +1,21 @@
+SciCrunch Knowledge Testing
+===========================
+
+This repository holds tests for the knowledge provided from SciCrunch endpoints.
+
+
+Tests included:
+---------------
 SPARC Discover and SciCrunch Testing
-====================================
+------------------------------------
+Datasets on Discover compared to the knowledge on SciCrunch.
 
-This repository holds tests for comparing the knowledge on Discover compared to the knowledge on SciCrunch.
-
-The tests can be run with the following command::
-
+Running the tests
+-----------------
  python -m unittest discover -s /Users/hsor001/Projects/sparc/sparc-discover-elastic-testing/tests
 
+Required Environment variables
+------------------------------
 The following environment variables need to be set to the appropriate values for the tests to run::
 
  PENNSIEVE_API_HOST
