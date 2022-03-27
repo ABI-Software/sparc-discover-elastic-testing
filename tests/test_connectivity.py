@@ -9,31 +9,114 @@ import requests
 
 #===============================================================================
 
+from mapknowledge import KnowledgeStore
+
+#===============================================================================
+
 from tests.config import Config
 
 #===============================================================================
 
-def get_connectivity(query):
-    headers = {'accept': 'application/json'}
-    params = {'api_key': Config.SCICRUNCH_API_KEY}
-    return requests.get(urljoin(Config.SCICRUNCH_APINATOMY_HOST + '/', query),
-                        headers=headers, params=params)
+KEAST_BLADDER_MODEL = {
+    'id': 'https://apinatomy.org/uris/models/keast-bladder',
+    'label': 'https://apinatomy.org/uris/models/keast-bladder',
+    'paths': [
+        {'id': 'ilxtr:neuron-type-keast-13',
+         'models': 'ilxtr:neuron-type-keast-13'},
+        {'id': 'ilxtr:neuron-type-keast-2',
+         'models': 'ilxtr:neuron-type-keast-2'},
+        {'id': 'ilxtr:neuron-type-keast-20',
+         'models': 'ilxtr:neuron-type-keast-20'},
+        {'id': 'ilxtr:neuron-type-keast-3',
+         'models': 'ilxtr:neuron-type-keast-3'},
+        {'id': 'ilxtr:neuron-type-keast-16',
+         'models': 'ilxtr:neuron-type-keast-16'},
+        {'id': 'ilxtr:neuron-type-keast-1',
+         'models': 'ilxtr:neuron-type-keast-1'},
+        {'id': 'ilxtr:neuron-type-keast-8',
+         'models': 'ilxtr:neuron-type-keast-8'},
+        {'id': 'ilxtr:neuron-type-keast-7',
+         'models': 'ilxtr:neuron-type-keast-7'},
+        {'id': 'ilxtr:neuron-type-keast-12',
+         'models': 'ilxtr:neuron-type-keast-12'},
+        {'id': 'ilxtr:neuron-type-keast-10',
+         'models': 'ilxtr:neuron-type-keast-10'},
+        {'id': 'ilxtr:neuron-type-keast-11',
+         'models': 'ilxtr:neuron-type-keast-11'},
+        {'id': 'ilxtr:neuron-type-keast-4',
+         'models': 'ilxtr:neuron-type-keast-4'},
+        {'id': 'ilxtr:neuron-type-keast-17',
+         'models': 'ilxtr:neuron-type-keast-17'},
+        {'id': 'ilxtr:neuron-type-keast-5',
+         'models': 'ilxtr:neuron-type-keast-5'},
+        {'id': 'ilxtr:neuron-type-keast-9',
+         'models': 'ilxtr:neuron-type-keast-9'},
+        {'id': 'ilxtr:neuron-type-keast-18',
+         'models': 'ilxtr:neuron-type-keast-18'},
+        {'id': 'ilxtr:neuron-type-keast-6',
+         'models': 'ilxtr:neuron-type-keast-6'},
+        {'id': 'ilxtr:neuron-type-keast-19',
+         'models': 'ilxtr:neuron-type-keast-19'},
+        {'id': 'ilxtr:neuron-type-keast-15',
+         'models': 'ilxtr:neuron-type-keast-15'},
+        {'id': 'ilxtr:neuron-type-keast-14',
+         'models': 'ilxtr:neuron-type-keast-14'}
+    ]
+}
+
+KEAST_NEURON_PATH_5 = {
+    'id': 'ilxtr:neuron-type-keast-5',
+    'label': 'parasympathetic spinal preganglionic neuron (kblad)',
+    'long-label': 'ilxtr:neuron-phenotype-keast-5 neuron',
+    'phenotypes': [
+        'ilxtr:ParasympatheticPhenotype',
+        'ilxtr:PreGanglionicPhenotype'
+    ],
+    'connectivity': [
+        (('UBERON:0016549', ('ILX:0738432', None, 'UBERON:0005844')),
+            ('EMAPA:25279', ())),
+        (('UBERON:0016549', ('UBERON:0006460', None, 'UBERON:0005844')),
+            ('EMAPA:25281', ())),
+        (('EMAPA:25281', ()), ('UBERON:0018675', ())),
+        (('UBERON:0016578', ('UBERON:0006460', None, 'UBERON:0005844')),
+            ('UBERON:0016549', ('UBERON:0006460', None, 'UBERON:0005844'))),
+        (('UBERON:0016578', ('ILX:0738432', None, 'UBERON:0005844')),
+            ('UBERON:0016549', ('ILX:0738432', None, 'UBERON:0005844'))),
+        (('UBERON:0018675', ()), ('UBERON:0016508', ())),
+        (('EMAPA:25279', ()), ('UBERON:0018675', ()))
+    ],
+    'references': [
+        'PMID:10473279',
+        'PMID:86176',
+        'PMID:7174880',
+        'PMID:21283532',
+        'PMID:12401325',
+        'PMID:6736301',
+        'PMID:9442414'
+    ]
+}
 
 #===============================================================================
 
 class ConnectivityTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self.__knowledge_store = KnowledgeStore(
+            clean_connectivity=True,
+            scicrunch_api=Config.SCICRUNCH_API,
+            scicrunch_key=Config.SCICRUNCH_API_KEY
+        )
 
-    def test_connectivity_models(self):
-        response = get_connectivity('modelList.json')
-        self.assertEqual(200, response.status_code)
-        assert len(response.json()['nodes']) > 5
+    def test_connectivity_neurons(self):
+        knowledge = self.__knowledge_store.entity_knowledge(KEAST_BLADDER_MODEL['id'])
+        assert len(knowledge)
+        assert len(knowledge.get('paths')) == 20, 'Wrong number of neuron paths'
 
     def test_connectivity_neuron_group(self):
-        neuron_group = 'ilxtr:neuron-type-keast-5'
-        response = get_connectivity(f'neru-4/{neuron_group}.json')
-        self.assertEqual(200, response.status_code)
-        connectivity = response.json()
-        self.assertGreater(len(connectivity['nodes']), 50)
-        self.assertGreater(len(connectivity['edges']), 70)
+        knowledge = self.__knowledge_store.entity_knowledge(KEAST_NEURON_PATH_5['id'])
+        assert len(knowledge)
+        assert len(knowledge.get('connectivity')) == len(KEAST_NEURON_PATH_5['connectivity']), 'Incorrect number of nodes on neuron path'
+        assert set(knowledge.get('phenotypes')) == set(KEAST_NEURON_PATH_5['phenotypes']), 'Incorrect neuron path phenotypes'
+        assert len(knowledge.get('references', [])) > 5, 'Too few references'
 
 #===============================================================================
