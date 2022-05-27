@@ -112,15 +112,15 @@ class ConnectivityTestCase(unittest.TestCase):
     def test_connectivity_neurons(self):
         knowledge = self.__knowledge_store.entity_knowledge(KEAST_BLADDER_MODEL['id'])
         assert len(knowledge)
-        assert len(knowledge.get('paths')) == 20, 'Wrong number of neuron paths'
+        assert len(knowledge.get('paths')) == 20, 'Wrong number of neuron paths for Keast bladder model'
 
     def test_connectivity_neuron_group(self):
         knowledge = self.__knowledge_store.entity_knowledge(KEAST_NEURON_PATH_5['id'])
         assert len(knowledge)
-        assert len(knowledge.get('connectivity')) == len(KEAST_NEURON_PATH_5['connectivity']), 'Incorrect number of nodes on neuron path'
-        assert set(knowledge.get('phenotypes')) == set(KEAST_NEURON_PATH_5['phenotypes']), 'Incorrect neuron path phenotypes'
-        assert len(knowledge.get('references', [])) > 5, 'Too few references'
+        assert len(knowledge.get('connectivity', [])) == len(KEAST_NEURON_PATH_5['connectivity']), 'Incorrect number of nodes for Keast neuron path 5'
         assert set(knowledge.get('axons', [])) == set(KEAST_NEURON_PATH_5['axons']), 'Incorrect set of axons for Keast neuron path 5'
         assert set(knowledge.get('dendrites', [])) == set(KEAST_NEURON_PATH_5['dendrites']), 'Incorrect set of dendrites for Keast neuron path 5'
+        assert set(knowledge.get('phenotypes', [])) == set(KEAST_NEURON_PATH_5['phenotypes']), 'Incorrect phenotypes for Keast neuron path 5'
+        assert len(knowledge.get('references', [])) > 5, 'Too few references for Keast neuron path 5'
 
 #===============================================================================
