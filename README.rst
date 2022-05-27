@@ -23,6 +23,9 @@ The following environment variables need to be set to the appropriate values for
  PENNSIEVE_API_TOKEN
  SCICRUNCH_API_HOST
  SCICRUNCH_API_KEY
+ ALGOLIA_KEY
+ ALGOLIA_ID
+ ALGOLIA_INDEX
 
 Where *PENNSIEVE_API_HOST* could be set to *https://api.pennsieve.io/discover*, and *SCICRUNCH_API_HOST* could be set to *https://scicrunch.org/api/1/elastic/SPARC_PortalDatasets_dev*.
 The other environment variables *PENNSIEVE_API_SECRET*, *PENNSIEVE_API_TOKEN*, and *SCICRUNCH_API_KEY* you will need to figure out for yourself.
