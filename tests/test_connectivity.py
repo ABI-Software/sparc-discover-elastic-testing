@@ -67,7 +67,7 @@ KEAST_BLADDER_MODEL = {
 KEAST_NEURON_PATH_5 = {
     'id': 'ilxtr:neuron-type-keast-5',
     'label': 'parasympathetic spinal preganglionic neuron (kblad)',
-    'long-label': 'ilxtr:neuron-phenotype-keast-5 neuron',
+    'long-label': 'neuron type kblad 5',
     'phenotypes': [
         'ilxtr:ParasympatheticPhenotype',
         'ilxtr:PreGanglionicPhenotype'
