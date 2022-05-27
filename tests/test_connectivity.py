@@ -72,6 +72,8 @@ KEAST_NEURON_PATH_5 = {
         'ilxtr:ParasympatheticPhenotype',
         'ilxtr:PreGanglionicPhenotype'
     ],
+    'axons': ['UBERON:0016508'],
+    'dendrites': ['UBERON:0006460', 'ILX:0738432'],
     'connectivity': [
         (('UBERON:0016549', ('ILX:0738432', None, 'UBERON:0005844')),
             ('EMAPA:25279', ())),
@@ -118,5 +120,7 @@ class ConnectivityTestCase(unittest.TestCase):
         assert len(knowledge.get('connectivity')) == len(KEAST_NEURON_PATH_5['connectivity']), 'Incorrect number of nodes on neuron path'
         assert set(knowledge.get('phenotypes')) == set(KEAST_NEURON_PATH_5['phenotypes']), 'Incorrect neuron path phenotypes'
         assert len(knowledge.get('references', [])) > 5, 'Too few references'
+        assert set(knowledge.get('axons', [])) == set(KEAST_NEURON_PATH_5['axons']), 'Incorrect set of axons for Keast neuron path 5'
+        assert set(knowledge.get('dendrites', [])) == set(KEAST_NEURON_PATH_5['dendrites']), 'Incorrect set of dendrites for Keast neuron path 5'
 
 #===============================================================================

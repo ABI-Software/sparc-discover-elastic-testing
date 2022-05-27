@@ -1,2 +1,2 @@
-mapknowledge @ https://github.com/AnatomicMaps/map-knowledge/releases/download/v0.9.6/mapknowledge-0.9.6-py3-none-any.whl
+mapknowledge @ https://github.com/AnatomicMaps/map-knowledge/releases/download/v0.9.9/mapknowledge-0.9.9-py3-none-any.whl
 requests==2.27.1
