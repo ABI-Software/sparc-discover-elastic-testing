@@ -12,3 +12,5 @@ class Config(object):
     ALGOLIA_KEY=os.environ['ALGOLIA_KEY']
     ALGOLIA_ID=os.environ['ALGOLIA_ID']
     ALGOLIA_INDEX=os.environ['ALGOLIA_INDEX']
+    AWS_KEY=os.environ['AWS_KEY']
+    AWS_SECRET=os.environ['AWS_SECRET']
