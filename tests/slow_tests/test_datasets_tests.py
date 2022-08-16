@@ -4,6 +4,7 @@ import botocore
 import boto3
 import json
 import urllib.parse
+import os
 
 from urllib.parse import urljoin
 
@@ -44,6 +45,7 @@ TEST_MIME_TYPES = {
     'text/vnd.abi.plot+csv': PLOT_FILE
 }
 
+
 def getDatasets(start, size):
 
     headers = {'accept': 'application/json'}
@@ -54,7 +56,7 @@ def getDatasets(start, size):
     scicrunch_request = {
         "from": start,
         "size": size,
-#        For debugging
+#        For checking specific dataset
 #        "query": {
 #            "match": {
 #                "pennsieve.identifier.aggregate": {
@@ -75,20 +77,6 @@ def getDatasets(start, size):
 
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
 
-def checkResult(client, result1, result2, name_doi_map, name):
-    not_found_doi = []
-    for test_doi in result1:
-        if f'doi:{test_doi}' not in result2:
-            not_found_doi.append(test_doi)
-
-    if len(not_found_doi):
-        print(f"{name}: Not found datasets report:")
-    for doi in not_found_doi:
-        print(f"  {name_doi_map[doi]['id']} - {doi} - {name_doi_map[doi]['name']}")
-
-    # Can everything in discover be found on SciCrunch?
-    client.assertEqual([], not_found_doi, name)
-
 def map_mime_type(mime_type):
     if mime_type == '':
         return NOT_SPECIFIED
@@ -103,6 +91,7 @@ def map_mime_type(mime_type):
 
     return NOT_SPECIFIED
 
+#Get file header response from s3 bucket
 def getFileResponse(localPath, path, mime_type):
     try:
         head_response = s3.head_object(
@@ -127,14 +116,15 @@ def getFileResponse(localPath, path, mime_type):
         }
     return None
 
+#Get the mimetype
 def getObjectMimeType(obj):
     mime_type = obj.get('additional_mimetype', NOT_SPECIFIED)
     if mime_type != NOT_SPECIFIED:
         mime_type = mime_type.get('name')
     return  mime_type
 
+#Check if any of the item in isSourceOf is a thumbnail for the object
 def checkForThumbnail(obj, obj_list):
-    #Check if any of the item in isSourceOf is a thumbnail for the object
     local_mapped_type = map_mime_type(getObjectMimeType(obj))
     if local_mapped_type == THUMBNAIL_IMAGE:
         #Thumbnail found
@@ -154,7 +144,7 @@ def checkForThumbnail(obj, obj_list):
     
     return False
 
-
+#Generate report for datacite in the object
 def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
     keysToCheck = { 'isDerivedFrom': 0, 'isSourceOf': 0}
     reports = {'TotalErrors':0, 'ThumbnailError': 'None', 'ItemTested':0, 'isDerivedFrom': [], 'isSourceOf': [] }
@@ -201,7 +191,7 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
 
     return reports
 
-
+#Test object to check for any possible error
 def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
     dataciteReport = None
     fileResponse = None
@@ -247,8 +237,8 @@ def test_obj_list(id, version, obj_list):
     }
     return fileReports
                 
-
-def test_datasets_information(client, dataset):
+#Test the dataset 
+def test_datasets_information(dataset):
     report = {
         'Id': 'none',
         'DOI': 'none',
@@ -286,13 +276,17 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
         size = 20
         keepGoing = True
         totalSize = 0
+        reportOutput = 'reports/error_reports.json'
         reports = {'Tested': 0, 'Failed': 0, 'FailedIds':[], 'Datasets':[]}
+
+                
         while keepGoing:
             scicrunch_response = getDatasets(start, size)
             self.assertEqual(200, scicrunch_response.status_code)
 
             data = scicrunch_response.json()
 
+            #No more result, stop
             if size > len(data['hits']['hits']):
                 keepGoing = False
 
@@ -301,7 +295,7 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
             start = start + size
 
             for dataset in data['hits']['hits']:
-                report = test_datasets_information(self, dataset)
+                report = test_datasets_information(dataset)
                 print(f"Reports generated for {report['Id']}")
                 if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
                     reports['FailedIds'].append(report['Id'])
@@ -309,17 +303,20 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
 
             totalSize = totalSize + len(data['hits']['hits'])
 
+        # Generate the report
         reports['Tested'] = totalSize
         print(f"Number of datasets tested: {reports['Tested']}")
         reports['Failed'] = len(reports['FailedIds'])
         print(f"Number of dataset with erros: {reports['Failed']}")
-
-        if len(reports['FailedIds']) > 0:
-            print(json.dumps(reports, indent=4))
+        if reports['Failed'] > 0:
+            print(f"Failed Datasets: {reports['FailedIds']}")
             
-        with open('error_reports.json', 'w') as outfile:
+        os.makedirs(os.path.dirname(reportOutput), exist_ok=True)
+        with open(reportOutput, 'w') as outfile:
             json.dump(reports, outfile, indent=4)
     
+        print(f"Full report has been generated at {reportOutput}")
+
         self.assertEqual(0, len(reports['FailedIds']))
 
 if __name__ == '__main__':
