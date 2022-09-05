@@ -220,22 +220,34 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
 def test_obj_list(id, version, obj_list):
     objectErrors = []
     prefix = f"{id}/{version}/files"
+    foundScaffold = False
+    foundContextInfo = False
+    datasetErrors = []
+
     for obj in obj_list:
         mime_type = getObjectMimeType(obj)
         mapped_mime_type =  map_mime_type(mime_type)
         if mapped_mime_type == NOT_SPECIFIED:
             pass
         else:
+            if mapped_mime_type == SCAFFOLD_FILE:
+                foundScaffold = True
+            if mapped_mime_type == CONTEXT_FILE:
+                foundContextInfo = True
             error = testObj(obj_list, obj, mime_type, mapped_mime_type, prefix)
             if error:
                 objectErrors.append(error)
+    
+    if foundScaffold == True:
+        if foundContextInfo == False:
+            datasetErrors.append("Contextual Information cannot be found while scaffold is present")
 
     numberOfErrors = len(objectErrors)
     fileReports = {
         'Total': numberOfErrors,
         'Objects': objectErrors
     }
-    return fileReports
+    return {"fileReports": fileReports, "datasetErrors": datasetErrors}
                 
 #Test the dataset 
 def test_datasets_information(dataset):
@@ -259,8 +271,9 @@ def test_datasets_information(dataset):
             if version:
                 if 'objects' in source:
                     obj_list = source['objects']
-                    fileReports = test_obj_list(id, version, obj_list)
-                    report['ObjectErrors'] = fileReports
+                    obj_reports = test_obj_list(id, version, obj_list)
+                    report['ObjectErrors'] = obj_reports['fileReports']
+                    report['Errors'].extend(obj_reports["datasetErrors"])
             else:
                 report['Errors'].append('Missing version')
     return report
