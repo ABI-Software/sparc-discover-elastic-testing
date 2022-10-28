@@ -65,8 +65,9 @@ def getDatasets(start, size):
 #           }
 #        },
         "_source": [
-            "item.name",
             "item.curie",
+            "item.name",
+            "item.types",
             "objects.datacite",
             "objects.additional_mimetype",
             "objects.dataset",
@@ -217,7 +218,7 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
         
     return fileResponse
 
-def test_obj_list(id, version, obj_list):
+def test_obj_list(id, version, obj_list, scaffoldTag):
     objectErrors = []
     prefix = f"{id}/{version}/files"
     foundScaffold = False
@@ -241,6 +242,11 @@ def test_obj_list(id, version, obj_list):
     if foundScaffold == True:
         if foundContextInfo == False:
             datasetErrors.append("Contextual Information cannot be found while scaffold is present")
+        if scaffoldTag == False:
+            datasetErrors.append("Scaffold found in objects list but the dataset is not tagged with scaffold (types.item.name)")
+    elif scaffoldTag == True:
+        datasetErrors.append("Dataset is tagged with scaffold (types.item.name) but no scaffold can be found in the list of objects.")    
+
 
     numberOfErrors = len(objectErrors)
     fileReports = {
@@ -251,6 +257,7 @@ def test_obj_list(id, version, obj_list):
                 
 #Test the dataset 
 def test_datasets_information(dataset):
+    scaffoldTag = False
     report = {
         'Id': 'none',
         'DOI': 'none',
@@ -263,6 +270,11 @@ def test_datasets_information(dataset):
         if 'item' in source:
             report['Name'] = source['item'].get('name', 'none')
             report['DOI'] = source['item'].get('curie', 'none')
+            if 'types' in source['item']:
+                for type in source['item']['types']:
+                    if 'name' in type and type['name'] == 'scaffold':
+                        scaffoldTag = True
+
         if 'pennsieve' in source and 'version' in source['pennsieve'] and 'identifier' in source['pennsieve']:
             id = source['pennsieve']['identifier']
             version = source['pennsieve']['version']['identifier']
@@ -271,7 +283,7 @@ def test_datasets_information(dataset):
             if version:
                 if 'objects' in source:
                     obj_list = source['objects']
-                    obj_reports = test_obj_list(id, version, obj_list)
+                    obj_reports = test_obj_list(id, version, obj_list, scaffoldTag)
                     report['ObjectErrors'] = obj_reports['fileReports']
                     report['Errors'].extend(obj_reports["datasetErrors"])
             else:
@@ -285,6 +297,7 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
         super().__init__(*args, **kwds)
 
     def test_files_information(self):
+
         start = 0
         size = 20
         keepGoing = True
