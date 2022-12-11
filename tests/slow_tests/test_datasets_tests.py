@@ -166,7 +166,7 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                                 reports[key].append(
                                     {
                                         'relativePath': path,
-                                        'reason': 'Cannot found the path'
+                                        'reason': 'Cannot find the path'
                                     }
                                 )
                                 reports['TotalErrors'] +=1
