@@ -79,6 +79,7 @@ Contextual Information cannot be found while scaffold is present
 ````````````````````````````````````````````````````````````````
 Contextual Information providing details of the data such as scaffold cannot be found in the dataset despite the presence of a scaffold.
 In short, a file with the additional mimetype - application/x.vnd.abi.context-information+json is missing.
+Action: Check if a file annotated with contextual information is present in the manifest file. Check if the search engine is up-to-date.
 
 .. _ObjectErrors:
 
