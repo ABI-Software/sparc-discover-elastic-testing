@@ -11,6 +11,8 @@ from urllib.parse import urljoin
 from tests.config import Config
 
 error_report = {}
+doc_link = 'https://github.com/ABI-Software/scicrunch-knowledge-testing/tree/doc_v1'
+
 
 s3 = boto3.client(
     "s3",
@@ -108,14 +110,14 @@ def getFileResponse(localPath, path, mime_type):
                 'Mimetype': mime_type,
                 'Path': localPath,
                 'Reason': 'Invalid response',
-                'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-invalid-response'
+                'ReasonDetails': doc_link + '#reason-invalid-response'
             }
     except botocore.exceptions.ClientError as error:
         return {
             'Mimetype': mime_type,
             'Path': localPath,
             'Reason': f"{error}",
-            'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-an-error-occurred-404-when-calling-the-headobject-operation-not-found'
+            'ReasonDetails': doc_link + '#reason-an-error-occurred-404-when-calling-the-headobject-operation-not-found'
         }
     return None
 
@@ -169,7 +171,7 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                                     {
                                         'RelativePath': path,
                                         'Reason': 'Cannot find the path',
-                                        'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-cannot-find-the-path'
+                                        'ReasonDetails': doc_link + '#reason-cannot-find-the-path'
                                     }
                                 )
                                 reports['TotalErrors'] +=1
@@ -181,7 +183,7 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                                 {
                                     'RelativePath': path,
                                     'Reason': 'Encounter a problem while looking for path',
-                                    'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-encounter-a-problem-while-looking-for-path'
+                                    'ReasonDetails': doc_link + '#reason-encounter-a-problem-while-looking-for-path'
                                 }
                             )
                             reports['TotalErrors'] +=1
@@ -189,11 +191,11 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
         if mapped_mimetype in MIMETYPE_WITH_THUMBNAILS:
             if keysToCheck['isSourceOf'] == 0:
                 reports['ThumbnailError'] = 'Missing isSourceOf entry'
-                reports['ThumbnailErrorDetails'] = 'https://github.com/ABI-Software/scicrunch-knowledge-testing#thumbnailerror-missing-issourceof-entry'
+                reports['ThumbnailErrorDetails'] = doc_link + '#thumbnailerror-missing-issourceof-entry'
                 reports['TotalErrors'] +=1
             if thumbnailFound == False:
                 reports['ThumbnailError'] = 'Thumbnail not found in isSourceOf'
-                reports['ThumbnailErrorDetails'] = 'https://github.com/ABI-Software/scicrunch-knowledge-testing#thumbnailerror-thumbnail-not-found-in-issourceof'
+                reports['ThumbnailErrorDetails'] = doc_link + '#thumbnailerror-thumbnail-not-found-in-issourceof'
                 reports['TotalErrors'] +=1
 
     return reports
@@ -220,7 +222,7 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
             'Mimetype': mime_type,
             'Path': 'Not found',
             'Reason': 'Cannot find path',
-            'Reason': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-cannot-find-the-path'
+            'Reason': doc_link + '#reason-cannot-find-the-path'
         }
         
     return fileResponse
@@ -250,17 +252,17 @@ def test_obj_list(id, version, obj_list, scaffoldTag):
         if foundContextInfo == False:
             datasetErrors.append({
                 'Reason': 'Contextual Information cannot be found while scaffold is present',
-                'Details': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#contextual-information-cannot-be-found-while-scaffold-is-present'
+                'Details': doc_link + '#contextual-information-cannot-be-found-while-scaffold-is-present'
             })
         if scaffoldTag == False:
             datasetErrors.append({
                 'Reason': 'Scaffold found in objects list but the dataset is not tagged with scaffold (types.item.name)',
-                'Details': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#scaffold-found-in-objects-list-but-the-dataset-is-not-tagged-with-scaffold-typesitemname'
+                'Details': doc_link + '#scaffold-found-in-objects-list-but-the-dataset-is-not-tagged-with-scaffold-typesitemname'
             })
     elif scaffoldTag == True:
         datasetErrors.append({
             'Reason': 'Dataset is tagged with scaffold (types.item.name) but no scaffold can be found in the list of objects.',
-            'Details': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#dataset-is-tagged-with-scaffold-typesitemname-but-no-scaffold-can-be-found-in-the-list-of-objects'
+            'Details': doc_link + '#dataset-is-tagged-with-scaffold-typesitemname-but-no-scaffold-can-be-found-in-the-list-of-objects'
         })
 
 
