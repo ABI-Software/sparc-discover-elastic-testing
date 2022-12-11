@@ -85,9 +85,7 @@ Action: Check if a file annotated with contextual information is present in the 
 
 ObjectErrors
 ------------
-The object errors list provide the details of errors found in the dataset's objects list. They are generally files and annotations errors.
-
-Errors can be found at number of places and their details are listed below:
+The object errors list provide the details of errors found in the dataset's objects list. These errors generally indicate there are problems in the file path or annotations.
 
 ThumbnailError: Thumbnail not found in isSourceOf
 `````````````````````````````````````````````````
@@ -111,21 +109,21 @@ This error occurs when the file is one of the following types::
 Cause of the error: The entry of this file in the manifest does not have any entry or the entry is absent in the isSourceOf field.
 Action: Check the manifest and make sure isSourceOf contains a valid thumbnail entry.
 
-reason: An error occurred (404) when calling the HeadObject operation: Not Found
+Reason: An error occurred (404) when calling the HeadObject operation: Not Found
 ````````````````````````````````````````````````````````````````````````````````
 The file specified in path cannot be found in the data storage. This is either an error on the manifest or the search engine is returing out-of-sync information.
 In some cases, the file name in the data storage may have been altered causing this issue.
 Action: Check the manifest, make sure the path is specified correctly. Check the files and folders in the datset.
 
-reason: Cannot find the path
+Reason: Cannot find the path
 `````````````````````````````
-The file stated in the relativePath cannot be found, this may indicate a manifest error or the search engine contains incorrect information.
+The file stated in the RelativePath cannot be found, this may indicate a manifest error or the search engine contains incorrect information.
 In some cases, the file name in the data storage may have been altered causing this issue.
 
-reason: Encounter a problem while looking for path
+Reason: Encounter a problem while looking for path
 ``````````````````````````````````````````````````
-A problem has occurs while looking for the path specified in relativePath.
+A problem has occurs while looking for the path specified in RelativePath.
 
-reason: Invalid response
+Reason: Invalid response
 ````````````````````````
-An error on the data storage, this may or may not be an error on the manifest, search engine. Check future reports for updates..
+An error on the data storage, this may or may not be an error on the manifest and search engine. Check future reports for updates..
