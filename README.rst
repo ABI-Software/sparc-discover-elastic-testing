@@ -90,24 +90,24 @@ Errors can be found at number of places and their details are listed below:
 
 ThumbnailError: Thumbnail not found in isSourceOf
 `````````````````````````````````````````````````
-This error occurs when the file one of the following type::
+This error occurs when the file is one of the following types::
 
  application/x.vnd.abi.scaffold.view+json
  application/x.vnd.abi.scaffold.meta+json
  text/vnd.abi.plot+tab-separated-values
  text/vnd.abi.plot+csv
-Cause of the error: None of the files in the isSourceOf field in the manifest has the mimetype - "inode/vnd.abi.plot+thumbnail".
+Cause of the error: None of the files in the isSourceOf field of this file entry in the manifest has the mimetype - "inode/vnd.abi.plot+thumbnail".
 Action: Check the manifest and make sure thumbnail entries are correctly annotated and added to the isSourceOf field of the corresponding file.
 
 ThumbnailError: Missing isSourceOf entry
 ````````````````````````````````````````
-This error occurs when the file one of the following type::
+This error occurs when the file is one of the following types::
 
  application/x.vnd.abi.scaffold.view+json
  application/x.vnd.abi.scaffold.meta+json
  text/vnd.abi.plot+tab-separated-values
  text/vnd.abi.plot+csv
-Cause of the error: The entry of the file in the manifest does not have any entry or the entry is absent in the isSourceOf field.
+Cause of the error: The entry of this file in the manifest does not have any entry or the entry is absent in the isSourceOf field.
 Action: Check the manifest and make sure isSourceOf contains a valid thumbnail entry.
 
 reason: An error occurred (404) when calling the HeadObject operation: Not Found
