@@ -128,4 +128,4 @@ A problem has occurs while looking for the path specified in relativePath.
 
 reason: Invalid response
 ````````````````````````
-An error on the data storage, this may or may not be an error on the manifest, search engine. Check future reports for updates..
+An error on the data storage, this may or may not be an error on the manifest and search engine. Check future reports for updates..

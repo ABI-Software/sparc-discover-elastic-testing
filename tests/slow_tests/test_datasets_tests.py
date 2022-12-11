@@ -105,15 +105,17 @@ def getFileResponse(localPath, path, mime_type):
             pass
         else:
             return {
-                'mime_type': mime_type,
-                'path': localPath,
-                'reason': 'Invalid response'
+                'Mimetype': mime_type,
+                'Path': localPath,
+                'Reason': 'Invalid response',
+                'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-invalid-response'
             }
     except botocore.exceptions.ClientError as error:
         return {
-            'mime_type': mime_type,
-            'path': localPath,
-            'reason': f"{error}"
+            'Mimetype': mime_type,
+            'Path': localPath,
+            'Reason': f"{error}",
+            'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-an-error-occurred-404-when-calling-the-headobject-operation-not-found'
         }
     return None
 
@@ -165,8 +167,9 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                             if found == None:
                                 reports[key].append(
                                     {
-                                        'relativePath': path,
-                                        'reason': 'Cannot find the path'
+                                        'RelativePath': path,
+                                        'Reason': 'Cannot find the path',
+                                        'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-cannot-find-the-path'
                                     }
                                 )
                                 reports['TotalErrors'] +=1
@@ -176,8 +179,9 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                         except:
                             reports[key].append(
                                 {
-                                    'relativePath': path,
-                                    'reason': 'Encounter a problem while looking for path'
+                                    'RelativePath': path,
+                                    'Reason': 'Encounter a problem while looking for path',
+                                    'ReasonDetails': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-encounter-a-problem-while-looking-for-path'
                                 }
                             )
                             reports['TotalErrors'] +=1
@@ -185,9 +189,11 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
         if mapped_mimetype in MIMETYPE_WITH_THUMBNAILS:
             if keysToCheck['isSourceOf'] == 0:
                 reports['ThumbnailError'] = 'Missing isSourceOf entry'
+                reports['ThumbnailErrorDetails'] = 'https://github.com/ABI-Software/scicrunch-knowledge-testing#thumbnailerror-missing-issourceof-entry'
                 reports['TotalErrors'] +=1
             if thumbnailFound == False:
                 reports['ThumbnailError'] = 'Thumbnail not found in isSourceOf'
+                reports['ThumbnailErrorDetails'] = 'https://github.com/ABI-Software/scicrunch-knowledge-testing#thumbnailerror-thumbnail-not-found-in-issourceof'
                 reports['TotalErrors'] +=1
 
     return reports
@@ -205,15 +211,16 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
         if dataciteReport['TotalErrors'] > 0:
             if fileResponse == None:
                 fileResponse = {
-                    'mime_type': mime_type,
-                    'path': localPath,
+                    'Mimetype': mime_type,
+                    'Path': localPath,
                 }
-            fileResponse['dataciteReport'] = dataciteReport
+            fileResponse['DataciteReport'] = dataciteReport
     else:
         fileResponse = {
-            'mime_type': mime_type,
-            'path': 'Not found',
-            'reason': "Cannot find path"
+            'Mimetype': mime_type,
+            'Path': 'Not found',
+            'Reason': 'Cannot find path',
+            'Reason': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#reason-cannot-find-the-path'
         }
         
     return fileResponse
@@ -241,11 +248,20 @@ def test_obj_list(id, version, obj_list, scaffoldTag):
     
     if foundScaffold == True:
         if foundContextInfo == False:
-            datasetErrors.append("Contextual Information cannot be found while scaffold is present")
+            datasetErrors.append({
+                'Reason': 'Contextual Information cannot be found while scaffold is present',
+                'Details': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#contextual-information-cannot-be-found-while-scaffold-is-present'
+            })
         if scaffoldTag == False:
-            datasetErrors.append("Scaffold found in objects list but the dataset is not tagged with scaffold (types.item.name)")
+            datasetErrors.append({
+                'Reason': 'Scaffold found in objects list but the dataset is not tagged with scaffold (types.item.name)',
+                'Details': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#scaffold-found-in-objects-list-but-the-dataset-is-not-tagged-with-scaffold-typesitemname'
+            })
     elif scaffoldTag == True:
-        datasetErrors.append("Dataset is tagged with scaffold (types.item.name) but no scaffold can be found in the list of objects.")    
+        datasetErrors.append({
+            'Reason': 'Dataset is tagged with scaffold (types.item.name) but no scaffold can be found in the list of objects.',
+            'Details': 'https://github.com/ABI-Software/scicrunch-knowledge-testing#dataset-is-tagged-with-scaffold-typesitemname-but-no-scaffold-can-be-found-in-the-list-of-objects'
+        })
 
 
     numberOfErrors = len(objectErrors)
@@ -253,7 +269,7 @@ def test_obj_list(id, version, obj_list, scaffoldTag):
         'Total': numberOfErrors,
         'Objects': objectErrors
     }
-    return {"fileReports": fileReports, "datasetErrors": datasetErrors}
+    return {"FileReports": fileReports, "DatasetErrors": datasetErrors}
                 
 #Test the dataset 
 def test_datasets_information(dataset):
@@ -284,8 +300,8 @@ def test_datasets_information(dataset):
                 if 'objects' in source:
                     obj_list = source['objects']
                     obj_reports = test_obj_list(id, version, obj_list, scaffoldTag)
-                    report['ObjectErrors'] = obj_reports['fileReports']
-                    report['Errors'].extend(obj_reports["datasetErrors"])
+                    report['ObjectErrors'] = obj_reports['FileReports']
+                    report['Errors'].extend(obj_reports["DatasetErrors"])
             else:
                 report['Errors'].append('Missing version')
     return report
