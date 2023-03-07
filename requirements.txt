@@ -1,4 +1,4 @@
 requests==2.27.1
 algoliasearch==2.6.2
 boto3==1.17.67
-mapknowledge @ https://github.com/AnatomicMaps/map-knowledge/releases/download/v0.9.9/mapknowledge-0.9.9-py3-none-any.whl
+mapknowledge @ https://github.com/AnatomicMaps/map-knowledge/releases/download/v0.13.1/mapknowledge-0.13.1-py3-none-any.whl
