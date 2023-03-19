@@ -72,20 +72,21 @@ KEAST_NEURON_PATH_5 = {
         'ilxtr:ParasympatheticPhenotype',
         'ilxtr:PreGanglionicPhenotype'
     ],
-    'axons': ['UBERON:0016508'],
-    'dendrites': ['UBERON:0006460', 'ILX:0738432'],
+    'axons': [
+        ('UBERON:0016508', ())
+    ],
+    'dendrites': [
+        ('UBERON:0016578', ('UBERON:0006460',)),
+        ('UBERON:0016578', ('ILX:0738432',))
+    ],
     'connectivity': [
-        (('UBERON:0016549', ('ILX:0738432', None, 'UBERON:0005844')),
-            ('EMAPA:25279', ())),
-        (('UBERON:0016549', ('UBERON:0006460', None, 'UBERON:0005844')),
-            ('EMAPA:25281', ())),
-        (('EMAPA:25281', ()), ('UBERON:0018675', ())),
-        (('UBERON:0016578', ('UBERON:0006460', None, 'UBERON:0005844')),
-            ('UBERON:0016549', ('UBERON:0006460', None, 'UBERON:0005844'))),
-        (('UBERON:0016578', ('ILX:0738432', None, 'UBERON:0005844')),
-            ('UBERON:0016549', ('ILX:0738432', None, 'UBERON:0005844'))),
+        (('ILX:0793615', ()), ('UBERON:0018675', ())),
+        (('UBERON:0016578', ('ILX:0738432',)), ('ILX:0738432', ())),
         (('UBERON:0018675', ()), ('UBERON:0016508', ())),
-        (('EMAPA:25279', ()), ('UBERON:0018675', ()))
+        (('UBERON:0016578', ('UBERON:0006460',)), ('UBERON:0006460', ())),
+        (('UBERON:0006460', ()), ('ILX:0792853', ())),
+        (('ILX:0792853', ()), ('UBERON:0018675', ())),
+        (('ILX:0738432', ()), ('ILX:0793615', ()))
     ],
     'references': [
         'PMID:10473279',
@@ -95,7 +96,8 @@ KEAST_NEURON_PATH_5 = {
         'PMID:12401325',
         'PMID:6736301',
         'PMID:9442414'
-    ]
+    ],
+    'errors': []
 }
 
 #===============================================================================
