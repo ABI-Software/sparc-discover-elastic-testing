@@ -1,3 +1,4 @@
+import json
 import unittest
 import requests
 
@@ -82,7 +83,7 @@ class ComparisonTestCase(unittest.TestCase):
         response = requests.get(urljoin(pennsieve_host, 'datasets'), params=params, headers=headers)
         self.assertEqual(200, response.status_code)
 
-        json_data = response.json()
+        json_data = json.loads(response.text)
         discover_doi = []
         name_doi_map = {}
         for dataset in json_data['datasets']:
