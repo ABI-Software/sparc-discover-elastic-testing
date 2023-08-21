@@ -3,10 +3,11 @@ import unittest
 import requests
 
 from algoliasearch.search_client import SearchClient
-
+from ftfy import fix_text
 from urllib.parse import urljoin
 
 from tests.config import Config
+
 
 SCICRUNCH_DOI_AGGREGATION = {
     "from": 0,
@@ -83,7 +84,8 @@ class ComparisonTestCase(unittest.TestCase):
         response = requests.get(urljoin(pennsieve_host, 'datasets'), params=params, headers=headers)
         self.assertEqual(200, response.status_code)
 
-        json_data = json.loads(response.text)
+        fixed_text = fix_text(response.text)
+        json_data = json.loads(fixed_text)
         discover_doi = []
         name_doi_map = {}
         for dataset in json_data['datasets']:
