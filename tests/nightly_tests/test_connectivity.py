@@ -23,6 +23,17 @@ FLATMAP_MODELS = {
     'https://apinatomy.org/uris/models/spleen',
 }
 
+FLATMAP_MODELS_TO_NPO = {
+    'https://apinatomy.org/uris/models/keast-bladder': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronKblad',
+    'https://apinatomy.org/uris/models/ard-arm-cardiac': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronAacar',
+    'https://apinatomy.org/uris/models/bolser-lewis': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronBolew',
+    'https://apinatomy.org/uris/models/bronchomotor': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronBromo',
+    'https://apinatomy.org/uris/models/pancreas': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronPancr',
+    'https://apinatomy.org/uris/models/sawg-distal-colon': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronSdcol',
+    'https://apinatomy.org/uris/models/sawg-stomach': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronSstom',
+    'https://apinatomy.org/uris/models/spleen': 'http://uri.interlex.org/tgbugs/uris/readable/NeuronSplen',
+}
+
 APINATOMY_MODELS = {
     'SAWG_DISTAL_MODEL': {
         'id': 'https://apinatomy.org/uris/models/sawg-distal-colon',
@@ -579,21 +590,26 @@ class ConnectivityTestCase(unittest.TestCase):
             scicrunch_key=Config.SCICRUNCH_API_KEY,
             scicrunch_release=SCICRUNCH_STAGING
         )
-        if production.scicrunch.sckan_build()['release'] != staging.scicrunch.sckan_build()['release']:
-            self.__stores = {
-                f"SCKAN Production:{production.scicrunch.sckan_build()['released']}": production,
-                f"SCKAN Staging:{staging.scicrunch.sckan_build()['released']}": staging,
-            }
-        else:
-            self.__stores = {
-                f"SCKAN Production:{production.scicrunch.sckan_build()['released']}": production,
-            }
+        npo = KnowledgeStore(
+            clean_connectivity=True,
+            scicrunch_api=Config.SCICRUNCH_API,
+            scicrunch_key=Config.SCICRUNCH_API_KEY,
+            scicrunch_release=SCICRUNCH_PRODUCTION,
+            npo = True
+        )
+        self.__stores = {
+            f"SCKAN Production:{production.scicrunch.build()['released']}": production,
+            f"SCKAN Staging:{staging.scicrunch.build()['released']}": staging,
+            f"SCKAN Production:{npo.scicrunch.build()['released']} with NPO": npo,
+        }
 
-    def test_sckan_build(self):
+    def test_build(self):
         ver_production = list(self.__stores.keys())[0]
         ver_staging = list(self.__stores.keys())[1]
+        released_production = self.__stores[ver_production].scicrunch.build()['released']
+        released_staging = self.__stores[ver_staging].scicrunch.build()['released']
         # comparing sckan if releases are different
-        if ver_production != ver_staging:
+        if released_production != released_staging:
             connectivity_models_prod = self.__stores[ver_production].connectivity_models()
             connectivity_models_stag = self.__stores[ver_staging].connectivity_models()
             assert set(connectivity_models_prod) == set(connectivity_models_stag), \
@@ -608,10 +624,14 @@ class ConnectivityTestCase(unittest.TestCase):
     def test_connectivity_neurons(self):
         for version, store in self.__stores.items():
             for model, neurons in APINATOMY_MODELS.items():
-                knowledge = store.entity_knowledge(neurons.get('id'))
+                neuron = neurons.get('id')
+                if 'with NPO' in version:
+                    neuron = FLATMAP_MODELS_TO_NPO[neuron]
+                knowledge = store.entity_knowledge(neuron)
                 assert len(knowledge)
-                assert len(knowledge.get('paths')) == len(neurons.get('paths')), \
-                    f"{version} - Wrong number of neuron paths for {model} model"
+                assert len(knowledge.get('paths', [])) == len(neurons.get('paths', [])), \
+                    f"{version} - Wrong number of neuron paths for {model} model" + \
+                    f"{neurons.get('id')} - {knowledge} - {version}"
                 
     def test_connectivity_neuron_group(self):
         for version, store in self.__stores.items():
@@ -628,5 +648,10 @@ class ConnectivityTestCase(unittest.TestCase):
                     f"{version} - Incorrect set of phenotypes for {idx}"
                 assert len(set(knowledge.get('references', []))) >= len(set(path['references'])), \
                     f"{version} - Too few references for {idx}"
+
+#===============================================================================
+
+if __name__ == '__main__':
+    unittest.main()
 
 #===============================================================================
