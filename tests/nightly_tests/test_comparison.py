@@ -3,7 +3,6 @@ import unittest
 import requests
 
 from algoliasearch.search_client import SearchClient
-from ftfy import fix_text
 from urllib.parse import urljoin
 
 from tests.config import Config
@@ -37,7 +36,6 @@ def checkResult(client, result1, result2, name_doi_map, name):
         print(f"{name}: Not found datasets report:")
     for doi in not_found_doi:
         print(f"  {name_doi_map[doi]['id']} - {doi} - {name_doi_map[doi]['name']}")
-
     # Can everything in discover be found on SciCrunch?
     client.assertEqual([], not_found_doi, name)
 
@@ -80,18 +78,30 @@ class ComparisonTestCase(unittest.TestCase):
 
         json_data = find_total_response.json()
         total_count = json_data['totalCount']
-        params = {'limit': total_count, 'embargo': False}
-        response = requests.get(urljoin(pennsieve_host, 'datasets'), params=params, headers=headers)
-        self.assertEqual(200, response.status_code)
 
-        fixed_text = fix_text(response.text)
-        json_data = json.loads(fixed_text)
+        #break the call to datasets into multiple chunks as one single call
+        #seems to be breaking the tests
+        remain = total_count
+        offset = 0
+        count = 100
         discover_doi = []
         name_doi_map = {}
-        for dataset in json_data['datasets']:
-            if dataset['id'] in sparc_dataset_ids:
-                discover_doi.append(dataset['doi'])
-                name_doi_map[dataset['doi']] = {'name': dataset['name'], 'id': dataset['id']}
+        while remain > 0:
+            if count > remain:
+                remain = 0
+                count = remain
+            remain = remain - count
+
+            params = {'limit': count, 'offset': offset, 'embargo': False}
+            response = requests.get(urljoin(pennsieve_host, 'datasets'), params=params, headers=headers)
+            self.assertEqual(200, response.status_code)
+            json_data = response.json()
+            self.assertEqual(count, len(json_data['datasets']))
+            for dataset in json_data['datasets']:
+                if dataset['id'] in sparc_dataset_ids:
+                    discover_doi.append(dataset['doi'])
+                    name_doi_map[dataset['doi']] = {'name': dataset['name'], 'id': dataset['id']}
+            offset = offset + count
         # self.assertEqual(total_count, len(discover_doi))
 
         checkResult(self, discover_doi, scicrunch_doi, name_doi_map, 'Pennsieve vs SciCrunch')
