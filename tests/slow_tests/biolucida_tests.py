@@ -199,12 +199,11 @@ def test_datasets_information(dataset):
             if 'uri' in source['pennsieve']:
                 bucket = extract_bucket_name(source['pennsieve']['uri'])
             if version:
-                if 'objects' in source:
-                    obj_list = source['objects']
-                    obj_reports = test_biolucida_list(id, version, obj_list, bucket)
-                    report['ObjectErrors'] = obj_reports['FileReports']
-                    report['Errors'].extend(obj_reports["DatasetErrors"])
-                    report['Biolucida'] = obj_reports['BiolucidaFound']
+                obj_list = source['objects'] if 'objects' in source else []
+                obj_reports = test_biolucida_list(id, version, obj_list, bucket)
+                report['ObjectErrors'] = obj_reports['FileReports']
+                report['Errors'].extend(obj_reports["DatasetErrors"])
+                report['Biolucida'] = obj_reports['BiolucidaFound']
             else:
                 report['Errors'].append('Missing version')
     return report
