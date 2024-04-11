@@ -15,6 +15,23 @@ S3_BUCKET_NAME = "pennsieve-prod-discover-publish-use1"
 
 NOT_SPECIFIED = 'not-specified'
 
+def get_dataset_info_pennsieve_identifier(identifier):
+
+    headers = {'accept': 'application/json'}
+    params = {'api_key': Config.SCICRUNCH_API_KEY}
+
+    scicrunch_host = Config.SCICRUNCH_API_HOST + '/'
+
+    scicrunch_request = {
+        "query": {
+            "term": {
+                "pennsieve.identifier.aggregate": identifier
+            }
+        }
+    }
+
+    return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
+
 def getDatasets(start, size):
 
     headers = {'accept': 'application/json'}
@@ -169,6 +186,18 @@ def test_biolucida_list(id, version, obj_list, bucket):
     if not biolucidaIDFound and biolucidaInfoFound:
         datasetErrors.append({
             'Reason': 'Image information found on Biolucida server but no image id is found on SciCrunch.',
+            'Detail': 'Further tests will be applied with biolucida objects from Scicrunch pennsieve identifier query response.'
+        })
+
+    dataset_response = get_dataset_info_pennsieve_identifier(id)
+    dataset_info_pennsieve_identifier = dataset_response.json()
+    dataset_source = dataset_info_pennsieve_identifier['hits']['hits'][0]['_source']
+
+    if 'objects' not in dataset_source and biolucidaInfoFound:
+        datasetErrors.append({
+            'Reason': 'Image information found on Biolucida server but no objects are found on Scicrunch pennsieve identifier query response.'
+        })
+
     for image in dataset_info['dataset_images']:
         image_id = image['image_id']
         if image_id in imageIDs:
