@@ -57,7 +57,7 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
         biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/image/{biolucida_id}')
         if not biolucida_response.status_code == 200:
             return {
-                'Path': localPath,
+                'scicrunch_path': localPath,
                 'biolucida_id': biolucida_id,
                 'Reason': 'Cannot get a valid request from Biolucida',
             }
@@ -66,16 +66,16 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
 
         if image_info['status'] == "permission denied":
             return {
-                'Path': localPath,
+                'scicrunch_path': localPath,
                 'biolucida_id': biolucida_id,
                 'Reason': 'Biolucida permission denied',
             }
         #Check if file path is consistent between scicrunch and biolucida
         if not 'name' in image_info or not image_info['name'] in localPath:
             fileResponse = {
-                'Path': localPath,
+                'scicrunch_path': localPath,
                 'biolucida_id': biolucida_id,
-                'Reason': 'Conflict between biolucida and scicrunch response',
+                'Reason': 'Conflict between scicrunch and biolucida response',
             }
         else:
             #now check if the file path is consistent between Pennsieve and
@@ -111,19 +111,19 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
                                 break
                 if not foundFile:
                     fileResponse = {
-                        'Path': localPath,
+                        'scicrunch_path': localPath,
                         'biolucida_id': biolucida_id,
                         'Reason': 'File path cannot be found on Pennsieve',
                     }
             else:
                 fileResponse = {
-                    'Path': localPath,
+                    'scicrunch_path': localPath,
                     'biolucida_id': biolucida_id,
                     'Reason': 'Folder path cannot be found on Pennsieve',
                 }
     except Exception as e:    
         fileResponse = {
-            'Path': localPath,
+            'scicrunch_path': localPath,
             'biolucida_id': biolucida_id,
             'Reason': str(e)
         }
@@ -168,7 +168,7 @@ def test_biolucida_list(id, version, obj_list, bucket):
         })
     if not biolucidaIDFound and biolucidaInfoFound:
         datasetErrors.append({
-            'Reason': 'Image information found on Biolucida server but no image id is found on SciCrunch.'
+            'Reason': 'Image information found on Biolucida server but no image id is found on SciCrunch.',
     for image in dataset_info['dataset_images']:
         image_id = image['image_id']
         if image_id in imageIDs:
