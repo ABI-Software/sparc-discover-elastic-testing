@@ -3,6 +3,7 @@ import requests
 import json
 import urllib.parse
 import os
+import re
 
 from urllib.parse import urljoin
 
@@ -65,9 +66,14 @@ def extract_bucket_name(original_name):
 def testBiolucida(id, version, obj, biolucida_id, bucket):
     fileResponse = None
     global pennsieveCache
+    localPath = None
+    imageName = None
+    pageType = 'Redirect biolucidaviewer page'
 
 
-    localPath = obj['dataset']['path']
+    if not isinstance(obj, list):
+        pageType = 'Directly file page'
+        localPath = obj['dataset']['path']
 
     try:
 
@@ -87,12 +93,36 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
                 'biolucida_id': biolucida_id,
                 'Reason': 'Biolucida permission denied',
             }
+        
+        if 'name' in image_info:
+            imageName = image_info['name']
+        if isinstance(obj, list):
+            for dataset_obj in obj:
+                path = dataset_obj['dataset']['path']
+                if path.rfind('/') != -1:
+                    # Path and name may be different
+                    pathname_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', path[path.rfind('/')+1:]))
+                    imagename_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', imageName))
+                    # Either exact match or contains part of others
+                    if pathname_modified == imagename_modified or imagename_modified in pathname_modified or pathname_modified in imagename_modified:
+                        localPath = path
+            if localPath is None:
+                return {
+                    'scicrunch_path': localPath,
+                    'biolucida_id': biolucida_id,
+                    'Reason': '{page_type}: Filename cannot be found on Scicrunch'.format(page_type=pageType),
+                } 
+                    
+        scicrunch_filename = localPath[localPath.rfind('/')+1:]
+
         #Check if file path is consistent between scicrunch and biolucida
-        if not 'name' in image_info or not image_info['name'] in localPath:
+        if imageName != scicrunch_filename:
             fileResponse = {
                 'scicrunch_path': localPath,
                 'biolucida_id': biolucida_id,
                 'Reason': 'Conflict between scicrunch and biolucida response',
+                'Detail': '{page_type}: Biolucida filename ***{biolucida_filename}*** does not match the filename in scicrunch_path'.format(
+                    page_type=pageType, biolucida_filename=imageName),
             }
         else:
             #now check if the file path is consistent between Pennsieve and
@@ -156,6 +186,7 @@ def test_biolucida_list(id, version, obj_list, bucket):
     biolucidaIDFound = False
     biolucidaInfoFound = False
     biolucidaFound = False
+    biolucidaIDs = []
     imageIDs = []
     duplicateImageIDs = []
     duplicateFound = False
@@ -171,6 +202,7 @@ def test_biolucida_list(id, version, obj_list, bucket):
         if biolucida != NOT_SPECIFIED:
             biolucida_id = biolucida.get('identifier')
             if biolucida_id:
+                biolucidaIDs.append(biolucida_id)
                 biolucidaIDFound = True
                 error = testBiolucida(id, version, obj, biolucida_id, bucket)
                 if error:
@@ -205,6 +237,11 @@ def test_biolucida_list(id, version, obj_list, bucket):
             duplicateFound = True
         else:
             imageIDs.append(image_id)
+            # Biolucida viewer redirect to find if the image name can be matched
+            if 'objects' in dataset_source and image_id not in biolucidaIDs:
+                error = testBiolucida(id, version, dataset_source['objects'], image_id, bucket)
+                if error:
+                    objectErrors.append(error)
 
     if biolucidaInfoFound and duplicateFound:
         datasetErrors.append({
