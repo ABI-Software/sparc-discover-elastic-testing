@@ -139,6 +139,9 @@ def test_biolucida_list(id, version, obj_list, bucket):
     biolucidaIDFound = False
     biolucidaInfoFound = False
     biolucidaFound = False
+    imageIDs = []
+    duplicateImageIDs = []
+    duplicateFound = False
 
     biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/imagemap/search_dataset/discover/{id}')
     if biolucida_response.status_code == 200:
@@ -166,6 +169,18 @@ def test_biolucida_list(id, version, obj_list, bucket):
     if not biolucidaIDFound and biolucidaInfoFound:
         datasetErrors.append({
             'Reason': 'Image information found on Biolucida server but no image id is found on SciCrunch.'
+    for image in dataset_info['dataset_images']:
+        image_id = image['image_id']
+        if image_id in imageIDs:
+            duplicateImageIDs.append(image_id)
+            duplicateFound = True
+        else:
+            imageIDs.append(image_id)
+
+    if biolucidaInfoFound and duplicateFound:
+        datasetErrors.append({
+            'Reason': 'Duplicate image ids are found on biolucida server',
+            'Detail': 'Redundant image ids ***{ids}***'.format(ids=', '.join(set(duplicateImageIDs)))
         })
 
     numberOfErrors = len(objectErrors)
