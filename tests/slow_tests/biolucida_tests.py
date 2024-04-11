@@ -96,6 +96,13 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
         
         if 'name' in image_info:
             imageName = image_info['name']
+        else:
+            return {
+                'scicrunch_path': localPath,
+                'biolucida_id': biolucida_id,
+                'Reason': '{page_type}: Filename cannot be found on Biolucida'.format(page_type=pageType),
+            }
+
         if isinstance(obj, list):
             for dataset_obj in obj:
                 path = dataset_obj['dataset']['path']
