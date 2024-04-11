@@ -193,9 +193,9 @@ def test_biolucida_list(id, version, obj_list, bucket):
     biolucidaIDFound = False
     biolucidaInfoFound = False
     biolucidaFound = False
-    biolucidaIDs = []
-    imageIDs = []
-    duplicateImageIDs = []
+    biolucida_ids = []
+    dataset_images = []
+    dataset_images_duplicate = []
     duplicateFound = False
 
     biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/imagemap/search_dataset/discover/{id}')
@@ -209,7 +209,7 @@ def test_biolucida_list(id, version, obj_list, bucket):
         if biolucida != NOT_SPECIFIED:
             biolucida_id = biolucida.get('identifier')
             if biolucida_id:
-                biolucidaIDs.append(biolucida_id)
+                biolucida_ids.append(biolucida_id)
                 biolucidaIDFound = True
                 error = testBiolucida(id, version, obj, biolucida_id, bucket)
                 if error:
@@ -228,33 +228,34 @@ def test_biolucida_list(id, version, obj_list, bucket):
             'Detail': 'Further tests will be applied with biolucida objects from Scicrunch pennsieve identifier query response.'
         })
 
-    dataset_response = get_dataset_info_pennsieve_identifier(id)
-    dataset_info_pennsieve_identifier = dataset_response.json()
-    dataset_source = dataset_info_pennsieve_identifier['hits']['hits'][0]['_source']
+    scicrunch_response = get_dataset_info_pennsieve_identifier(id)
+    scicrunch_dataset = scicrunch_response.json()
+    dataset_source = scicrunch_dataset['hits']['hits'][0]['_source']
 
     if 'objects' not in dataset_source and biolucidaInfoFound:
         datasetErrors.append({
             'Reason': 'Image information found on Biolucida server but no objects are found on Scicrunch pennsieve identifier query response.'
         })
 
-    for image in dataset_info['dataset_images']:
-        image_id = image['image_id']
-        if image_id in imageIDs:
-            duplicateImageIDs.append(image_id)
-            duplicateFound = True
-        else:
-            imageIDs.append(image_id)
-            # Biolucida viewer redirect to find if the image name can be matched
-            if 'objects' in dataset_source and image_id not in biolucidaIDs:
-                error = testBiolucida(id, version, dataset_source['objects'], image_id, bucket)
-                if error:
-                    objectErrors.append(error)
+    if biolucidaInfoFound and 'dataset_images' in dataset_info:
+        for image in dataset_info['dataset_images']:
+            image_id = image['image_id']
+            if image_id not in dataset_images:
+                dataset_images.append(image_id)
+                # Biolucida viewer redirect to find if the image name can be matched
+                if image_id not in biolucida_ids and 'objects' in dataset_source:
+                    error = testBiolucida(id, version, dataset_source['objects'], image_id, bucket)
+                    if error:
+                        objectErrors.append(error)
+            else:
+                dataset_images_duplicate.append(image_id)
+                duplicateFound = True
 
-    if biolucidaInfoFound and duplicateFound:
-        datasetErrors.append({
-            'Reason': 'Duplicate image ids are found on biolucida server',
-            'Detail': 'Redundant image ids ***{ids}***'.format(ids=', '.join(set(duplicateImageIDs)))
-        })
+        if duplicateFound:
+            datasetErrors.append({
+                'Reason': 'Duplicate image ids are found on biolucida server',
+                'Detail': 'Redundant image ids ***{ids}***'.format(ids=', '.join(set(dataset_images_duplicate)))
+            })
 
     numberOfErrors = len(objectErrors)
     fileReports = {
