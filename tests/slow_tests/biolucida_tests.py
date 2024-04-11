@@ -69,6 +69,7 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
     localPath = None
     imageName = None
     pageType = 'Redirect biolucidaviewer page'
+    pennsievePath = None
 
 
     if not isinstance(obj, list):
@@ -163,12 +164,18 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
                             if uriFile in filePath:
                                 foundFile = True
                                 break
+                    # When incomplete folderPath is used to request files
+                    elif localFile['path'].lower() in lPath:
+                        pennsievePath = localFile['path'].lower()
                 if not foundFile:
                     fileResponse = {
                         'scicrunch_path': localPath,
                         'biolucida_id': biolucida_id,
                         'Reason': 'File path cannot be found on Pennsieve',
                     }
+                    if pennsievePath is not None:
+                        fileResponse['Detail'] = 'Possible path ***{pennsieve_path}*** is found on Pennsieve'.format(
+                            pennsieve_path=pennsievePath)
             else:
                 fileResponse = {
                     'scicrunch_path': localPath,
