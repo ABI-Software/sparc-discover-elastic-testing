@@ -28,7 +28,10 @@ def get_dataset_info_pennsieve_identifier(identifier):
             "term": {
                 "pennsieve.identifier.aggregate": identifier
             }
-        }
+        },
+        "_source": [
+            "objects.dataset"
+        ]
     }
 
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
@@ -204,6 +207,8 @@ def test_biolucida_list(id, version, obj_list, bucket):
     dataset_images = []
     dataset_images_duplicate = []
     duplicateFound = False
+    biolucidaViewerRedirect = False
+    redirect_source = {}
 
     biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/imagemap/search_dataset/discover/{id}')
     if biolucida_response.status_code == 200:
@@ -234,14 +239,14 @@ def test_biolucida_list(id, version, obj_list, bucket):
             'Reason': 'Image information found on Biolucida server but no image id is found on SciCrunch.',
             'Detail': 'Further tests will be applied with biolucida objects from Scicrunch pennsieve identifier query response.'
         })
+        biolucidaViewerRedirect = True
+        scicrunch_response = get_dataset_info_pennsieve_identifier(id)
+        scicrunch_dataset = scicrunch_response.json()
+        redirect_source = scicrunch_dataset['hits']['hits'][0]['_source']
 
-    scicrunch_response = get_dataset_info_pennsieve_identifier(id)
-    scicrunch_dataset = scicrunch_response.json()
-    dataset_source = scicrunch_dataset['hits']['hits'][0]['_source']
-
-    if 'objects' not in dataset_source and biolucidaInfoFound:
+    if biolucidaViewerRedirect and 'objects' not in redirect_source:
         datasetErrors.append({
-            'Reason': 'Image information found on Biolucida server but no objects are found on Scicrunch pennsieve identifier query response.'
+            'Reason': 'No objects are found on Scicrunch pennsieve identifier query response.'
         })
 
     if biolucidaInfoFound and 'dataset_images' in dataset_info:
@@ -250,8 +255,8 @@ def test_biolucida_list(id, version, obj_list, bucket):
             if image_id not in dataset_images:
                 dataset_images.append(image_id)
                 # Biolucida viewer redirect to find if the image name can be matched
-                if image_id not in biolucida_ids and 'objects' in dataset_source:
-                    error = testBiolucida(id, version, dataset_source['objects'], image_id, bucket)
+                if biolucidaViewerRedirect and image_id not in biolucida_ids and 'objects' in redirect_source:
+                    error = testBiolucida(id, version, redirect_source['objects'], image_id, bucket)
                     if error:
                         objectErrors.append(error)
             else:
