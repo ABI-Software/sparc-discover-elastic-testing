@@ -237,7 +237,7 @@ def test_biolucida_list(id, version, obj_list, bucket):
     if not biolucidaIDFound and biolucidaInfoFound:
         datasetErrors.append({
             'Reason': 'Image information found on Biolucida server but no image id is found on SciCrunch.',
-            'Detail': 'Further tests will be applied with biolucida objects from Scicrunch pennsieve identifier query response.'
+            'Detail': 'Please see the list below for more information.'
         })
         biolucidaViewerRedirect = True
         scicrunch_response = get_dataset_info_pennsieve_identifier(id)
