@@ -12,7 +12,8 @@ from tests.config import Config
 
 error_report = {}
 doc_link = 'https://github.com/ABI-Software/scicrunch-knowledge-testing/tree/doc_v1'
-
+#the following should either be a falsy value or a string containg dataset number
+checkDatasetOnly = False
 
 s3 = boto3.client(
     "s3",
@@ -58,14 +59,8 @@ def getDatasets(start, size):
     scicrunch_request = {
         "from": start,
         "size": size,
-#        For checking specific dataset
-#        "query": {
-#            "match": {
-#                "pennsieve.identifier.aggregate": {
-#                    "query": "77"
-#                }
-#           }
-#        },
+        #For checking specific dataset
+
         "_source": [
             "item.curie",
             "item.name",
@@ -78,6 +73,16 @@ def getDatasets(start, size):
             "pennsieve.uri"
         ]
     }
+
+    if checkDatasetOnly:
+        query = {
+            "match": {
+                "pennsieve.identifier.aggregate": {
+                    "query": checkDatasetOnly
+                }
+           }
+        }
+        scicrunch_request["query"] = query
 
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
 
@@ -106,6 +111,7 @@ def getFileResponse(localPath, path, mime_type, bucket):
             Key=path,
             RequestPayer="requester"
         )
+
         if head_response and 'ResponseMetadata' in head_response \
             and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
             pass
@@ -233,7 +239,7 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket):
 
 def test_obj_list(id, version, obj_list, scaffoldTag, bucket):
     objectErrors = []
-    prefix = f"{id}/{version}/files"
+    prefix = f"{id}/files"
     foundScaffold = False
     foundContextInfo = False
     datasetErrors = []
@@ -352,7 +358,6 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
                     reports['FailedIds'].append(report['Id'])
                     reports['Datasets'].append(report)
 
-            totalSize = totalSize + len(data['hits']['hits'])
 
         # Generate the report
         reports['Tested'] = totalSize
