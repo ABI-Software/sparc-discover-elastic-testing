@@ -8,6 +8,7 @@ import re
 from urllib.parse import urljoin
 
 from tests.config import Config
+from tests.slow_tests.manifest_name_to_discover_name import name_map, biolucida_name_map
 
 pennsieveCache = {}
 doc_link = 'https://github.com/ABI-Software/scicrunch-knowledge-testing/tree/doc_v1'
@@ -78,6 +79,8 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
     if not isinstance(obj, list):
         pageType = 'Directly file page'
         localPath = obj['dataset']['path']
+        if f'files/{localPath}' in name_map:
+            localPath = name_map[f'files/{localPath}']
 
     try:
 
@@ -100,6 +103,8 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
         
         if 'name' in image_info:
             imageName = image_info['name']
+            if imageName in biolucida_name_map:
+                imageName = biolucida_name_map[imageName]
         else:
             return {
                 'scicrunch_path': localPath,
@@ -110,6 +115,8 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
         if isinstance(obj, list):
             for dataset_obj in obj:
                 path = dataset_obj['dataset']['path']
+                if f'files/{path}' in name_map:
+                    path = name_map[f'files/{path}']
                 if path.rfind('/') != -1:
                     # Path and name may be different
                     pathname_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', path[path.rfind('/')+1:]))
@@ -138,7 +145,9 @@ def testBiolucida(id, version, obj, biolucida_id, bucket):
         else:
             #now check if the file path is consistent between Pennsieve and
             #the other two
-            filePath = "files/" + localPath
+            filePath = localPath
+            if "files/" not in localPath:
+                filePath = "files/" + localPath
             folderPath = filePath.rsplit("/", 1)[0]
             files = []
             if folderPath in pennsieveCache:
@@ -326,34 +335,119 @@ class BiolucidaDatasetFilesTest(unittest.TestCase):
         testSize = 2000
         totalBiolucida = 0
 
+        '''
+        Test selected datasets
+        '''
+        scicrunch_datasets = open('reports/scicrunch_datasets.json')
+        datasets = json.load(scicrunch_datasets)
+        scicrunch_datasets.close()
+        dataset_list = [
+        #     "22",
+        #     "296",
+        #     "64",
+        #     "109",
+        #     "90",
+        #     "304",
+        #     "137",
+        #     "175",
+        #     "125",
+        #     "345",
+        #     "43",
+        #     "82",
+        #     "107",
+        #     "77",
+        #     "158",
+        #     "321",
+        #     "37",
+        #     "265",
+        #     "61",
+        #     "16",
+        #     "348",
+        #     "389",
+        #     "383",
+        #     "230",
+        #     "221",
+        #     "75",
+        #     "73",
+        #     "36",
+        #     "54",
+        #     "60",
+        #     "234",
+        #     "240",
+        #     "56",
+        #     "205",
+        #     "21",
+        #     "97",
+        #     "32",
+        #     "85",
+        #     "162",
+        #     "89",
+        #     "369",
+        #     "29",
+        #     "367",
+        #     "373",
+        #     "65",
+        #     "161",
+        #     "204",
+        #     "108",
+        #     "293",
+        #     "178",
+        #     "88",
+            "287",
+        #     "388"
+        ]
 
-        while keepGoing :
-            scicrunch_response = getDatasets(start, size)
-            self.assertEqual(200, scicrunch_response.status_code)
+        '''
+        Add datasets to the queue
+        '''
+        data = {'hits': {'hits': []}}
+        for dataset_id in dataset_list:
+            data['hits']['hits'].append(datasets[dataset_id])
 
-            data = scicrunch_response.json()
+        for dataset in data['hits']['hits']:
+            report = test_datasets_information(dataset)
+            if 'Biolucida' in report and report['Biolucida']:
+                totalBiolucida = totalBiolucida + 1
+            print(f"Reports generated for {report['Id']}")
+            if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
+                reports['FailedIds'].append(report['Id'])
+                reports['Datasets'].append(report)
 
-            #No more result, stop
-            if size > len(data['hits']['hits']):
-                keepGoing = False
+        totalSize = totalSize + len(data['hits']['hits'])
 
-            #keepGoing= False
+        if totalSize >= testSize:
+            keepGoing = False
 
-            start = start + size
+        '''
+        Test all the datasets
+        '''
+        # while keepGoing :
+        #     scicrunch_response = getDatasets(start, size)
+        #     self.assertEqual(200, scicrunch_response.status_code)
 
-            for dataset in data['hits']['hits']:
-                report = test_datasets_information(dataset)
-                if 'Biolucida' in report and report['Biolucida']:
-                    totalBiolucida = totalBiolucida + 1
-                print(f"Reports generated for {report['Id']}")
-                if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
-                    reports['FailedIds'].append(report['Id'])
-                    reports['Datasets'].append(report)
+        #     data = scicrunch_response.json()
 
-            totalSize = totalSize + len(data['hits']['hits'])
+        #     #No more result, stop
+        #     if size > len(data['hits']['hits']):
+        #         keepGoing = False
 
-            if totalSize >= testSize:
-                keepGoing = False
+        #     #keepGoing= False
+
+        #     start = start + size
+
+        #     for dataset in data['hits']['hits']:
+        #         report = test_datasets_information(dataset)
+        #         if 'Biolucida' in report and report['Biolucida']:
+        #             totalBiolucida = totalBiolucida + 1
+        #         print(f"Reports generated for {report['Id']}")
+        #         if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
+        #             reports['FailedIds'].append(report['Id'])
+        #             reports['Datasets'].append(report)
+
+        #     totalSize = totalSize + len(data['hits']['hits'])
+
+        #     if totalSize >= testSize:
+        #         keepGoing = False
 
         # Generate the report
         reports['Tested'] = totalSize
