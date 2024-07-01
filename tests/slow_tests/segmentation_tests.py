@@ -198,11 +198,10 @@ def test_segmentation_list(id, version, obj_list, bucket):
 
     for obj in obj_list:
         mimetype = obj.get('additional_mimetype')
-        mimetype_name = mimetype.get('name')
-        if 'additional_mimetype' in obj:
-            if mimetype and mimetype_name in SEGMENTATION_FILES:
-                segmentation_found = True
-                file_path = obj['dataset']['path']
+        if mimetype:
+            mimetype_name = mimetype.get('name')
+            if mimetype_name in SEGMENTATION_FILES:
+                SegmentationFound = True
                 error = test_segmentation_thumbnail(id, version, obj, bucket)
                 # error2 = test_segmentation_file(id, version, obj, bucket)
                 if error:

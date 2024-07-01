@@ -241,13 +241,14 @@ def test_biolucida_list(id, version, obj_list, bucket):
             biolucida_id = biolucida.get('identifier')
             if biolucida_id:
                 mimetype = obj.get('additional_mimetype')
-                mimetype_name = mimetype.get('name')
-                if mimetype and mimetype_name in BIOLUCIDA_2D:
-                    biolucida_ids.append(biolucida_id)
-                    biolucidaIDFound = True
-                    error = testBiolucida(id, version, obj, biolucida_id, bucket)
-                    if error:
-                        objectErrors.append(error)
+                if mimetype:
+                    if mimetype['name'] in BIOLUCIDA_2D:
+                        mimetype_name = mimetype.get('name')
+                        biolucida_ids.append(biolucida_id)
+                        biolucidaIDFound = True
+                        error = testBiolucida(id, version, obj, biolucida_id, bucket)
+                        if error:
+                            objectErrors.append(error)
 
     if biolucidaIDFound or biolucidaInfoFound:
         biolucidaFound = True
