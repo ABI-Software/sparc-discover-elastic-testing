@@ -43,6 +43,10 @@ Biolucida tests Information
 ---------------------------------
  python -m unittest tests/slow_tests/biolucida_tests.py
 
+Segmentation tests Information
+---------------------------------
+ python -m unittest tests/slow_tests/segmentation_tests.py
+
 Details on slow tests reports
 =============================
 There are number of different errors in the `slow tests reports <https://autotest.bioeng.auckland.ac.nz/jenkins/view/Web%20Portal/job/Weekly%20SciCrunch%20Knowledge%20Test/21/artifact/reports/error_reports.json>`_,
