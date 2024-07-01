@@ -113,7 +113,7 @@ def test_segmentation_file(id, version, obj, bucket):
 def test_segmentation_thumbnail(id, version, obj, bucket):
     global pennsieve_cache
     global name_mapping
-    file_response = None
+    error_response = None
     pennsieve_path = None
     file_path = None
     name_difference = None
@@ -138,7 +138,7 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
         response = requests.get(url, params=query_args)
         if response.status_code == 200:
             return
-        file_response = {
+        error_response = {
             'NeuroLucidaPath': scicrunch_path,
             'Reason': 'Cannot get a valid request from NeuroLucida',
         }
@@ -148,48 +148,53 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
         if folderPath in pennsieve_cache:
             files = pennsieve_cache[folderPath]
         else:
-            fileUrl = '{api}/datasets/{id}/versions/{version}/files/browse?path={folderPath}'.format( 
+            file_url = '{api}/datasets/{id}/versions/{version}/files/browse?path={folderPath}'.format( 
                 api=Config.PENNSIEVE_API_HOST, id=id, version=version, folderPath=folderPath)
-            file_response = requests.get(fileUrl)
+            file_response = requests.get(file_url)
             files_info = file_response.json()
             if 'files' in files_info:
                 files = files_info['files']
 
         if len(files) > 0:
             pennsieve_cache[folderPath] = files
-            file_pathMatch = False
-            for localFile in files:
-                if localFile['fileType'] == 'XML':
-                    s3file_path = localFile['uri'].replace(f's3://{bucket}/{id}/', '')
+            file_path_match = False
+            s3file_path = None
+            for local_file in files:
+                scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
+                if local_file['fileType'] == 'XML' and local_file['name'] == scicrunch_filename:
+                    s3file_path = local_file['uri'].replace(f's3://{bucket}/{id}/', '')
                     if scicrunch_path == s3file_path:
-                        file_pathMatch = True
+                        file_path_match = True
                         break
                     else:
                         name_difference = {
-                            'scicrunch': scicrunch_path.rsplit("/", 1)[1], 
+                            'scicrunch': scicrunch_filename, 
                             's3': s3file_path.rsplit("/", 1)[1]
                         }
+                else:
+                    error_response['Reason2'] = 'File is not found on Pennsieve'
+                
 
-            if not file_pathMatch:
+            if not file_path_match:
                 if len(name_difference) > 0:
-                    file_response['Detail'] = 'Possibly inconsistency between Scicrunch and S3 file path: ' + str(name_difference)
+                    error_response['Detail'] = 'Possibly inconsistency between Scicrunch and S3 file path: ' + str(name_difference)
                     if id not in name_mapping:
                         name_mapping[id] = {}
                     name_mapping[id][scicrunch_path] = s3file_path
             else:
-                file_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file'
+                error_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file'
 
     except Exception as e:
-        file_response = {
+        error_response = {
             'NeuroLucidaPath': scicrunch_path,
             'Reason': str(e),
         }
 
-    return file_response
+    return error_response
 
 def test_segmentation_list(id, version, obj_list, bucket):
     global pennsieve_cache
-    segmentation_found = False
+    SegmentationFound = False
     SEGMENTATION_FILES = [
         'application/vnd.mbfbioscience.metadata+xml', 
         'application/vnd.mbfbioscience.neurolucida+xml'
@@ -214,7 +219,7 @@ def test_segmentation_list(id, version, obj_list, bucket):
         'Total': numberOfErrors,
         'Objects': objectErrors
     }
-    return {"FileReports": fileReports, "SegmentationFound": segmentation_found}
+    return {"FileReports": fileReports, "SegmentationFound": SegmentationFound}
                 
 #Test the dataset 
 def test_datasets_information(dataset):
