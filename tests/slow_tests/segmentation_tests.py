@@ -23,27 +23,7 @@ s3 = boto3.client(
     region_name="us-east-1",
 )
 
-S3_BUCKET_NAME = "prd-sparc-discover50-use1 "
-
-def get_dataset_info_pennsieve_identifier(identifier):
-
-    headers = {'accept': 'application/json'}
-    params = {'api_key': Config.SCICRUNCH_API_KEY}
-
-    scicrunch_host = Config.SCICRUNCH_API_HOST + '/'
-
-    scicrunch_request = {
-        "query": {
-            "term": {
-                "pennsieve.identifier.aggregate": identifier
-            }
-        },
-        "_source": [
-            "objects.dataset"
-        ]
-    }
-
-    return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
+S3_BUCKET_NAME = "prd-sparc-discover50-use1"
 
 def get_datasets(start, size):
 
@@ -73,7 +53,7 @@ def get_datasets(start, size):
 def extract_bucket_name(original_name):
     return original_name.split('/')[2]
 
-def test_segmentation_file(id, version, obj, bucket):
+def test_segmentation_s3file(id, version, obj, bucket):
     file_path = None
 
     mime_type = obj['additional_mimetype']['name']
@@ -85,6 +65,7 @@ def test_segmentation_file(id, version, obj, bucket):
         file_path = scicrunch_path
     if file_path in name_map:
         file_path = name_map[file_path]
+    file_path = f'{id}/' + file_path
 
     try:
         head_response = s3.head_object(
@@ -92,8 +73,7 @@ def test_segmentation_file(id, version, obj, bucket):
             Key=file_path,
             RequestPayer="requester"
         )
-        if head_response and 'ResponseMetadata' in head_response \
-            and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
+        if head_response and 'ResponseMetadata' in head_response and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
             pass
         else:
             return {
@@ -161,8 +141,10 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
             s3file_path = None
             for local_file in files:
                 scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
+                # Looking for specific local segmentation file
                 if local_file['fileType'] == 'XML' and local_file['name'] == scicrunch_filename:
                     s3file_path = local_file['uri'].replace(f's3://{bucket}/{id}/', '')
+                    # Compare Scicrunch file path with S3 file path mainly the file name
                     if scicrunch_path == s3file_path:
                         file_path_match = True
                         break
@@ -171,18 +153,17 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
                             'scicrunch': scicrunch_filename, 
                             's3': s3file_path.rsplit("/", 1)[1]
                         }
-                else:
-                    error_response['Reason2'] = 'File is not found on Pennsieve'
                 
-
             if not file_path_match:
                 if len(name_difference) > 0:
-                    error_response['Detail'] = 'Possibly inconsistency between Scicrunch and S3 file path: ' + str(name_difference)
+                    error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3 file path: {str(name_difference)}.'
                     if id not in name_mapping:
                         name_mapping[id] = {}
                     name_mapping[id][scicrunch_path] = s3file_path
             else:
-                error_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file'
+                error_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file.'
+        else:
+            error_response['Detail'] = 'Folder path cannot be found on Pennsieve. Please check the path.'
 
     except Exception as e:
         error_response = {
@@ -208,11 +189,11 @@ def test_segmentation_list(id, version, obj_list, bucket):
             if mimetype_name in SEGMENTATION_FILES:
                 SegmentationFound = True
                 error = test_segmentation_thumbnail(id, version, obj, bucket)
-                # error2 = test_segmentation_file(id, version, obj, bucket)
+                error2 = test_segmentation_s3file(id, version, obj, bucket)
                 if error:
                     objectErrors.append(error)
-                # if error2:
-                #     objectErrors.append(error2)
+                if error2:
+                    objectErrors.append(error2)
 
     numberOfErrors = len(objectErrors)
     fileReports = {
