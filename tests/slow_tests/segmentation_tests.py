@@ -96,7 +96,7 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
     error_response = None
     pennsieve_path = None
     file_path = None
-    name_difference = None
+    name_difference = {}
 
     try:
         scicrunch_path = obj['dataset']['path']
@@ -140,23 +140,28 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
             file_path_match = False
             s3file_path = None
             for local_file in files:
-                scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
-                # Looking for specific local segmentation file
-                if local_file['fileType'] == 'XML' and local_file['name'] == scicrunch_filename:
-                    s3file_path = local_file['uri'].replace(f's3://{bucket}/{id}/', '')
-                    # Compare Scicrunch file path with S3 file path mainly the file name
-                    if scicrunch_path == s3file_path:
-                        file_path_match = True
-                        break
-                    else:
-                        name_difference = {
-                            'scicrunch': scicrunch_filename, 
-                            's3': s3file_path.rsplit("/", 1)[1]
-                        }
+                # Only check segmentation files
+                if local_file['fileType'] == 'XML':
+                    scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
+                    # In case minor difference exists between scicrunch and s3 filename
+                    # Usually filename should match with each other, file path may not
+                    scicrunch_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', scicrunch_filename)).rsplit(".", 1)[0]
+                    local_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', local_file['name'])).rsplit(".", 1)[0]
+                    if local_file['name'] == scicrunch_filename or scicrunch_modified in local_modified or local_modified in scicrunch_modified:
+                        s3file_path = local_file['uri'].replace(f's3://{bucket}/{id}/', '')
+                        # Compare Scicrunch file path with S3 file path mainly the file name
+                        if scicrunch_path == s3file_path:
+                            file_path_match = True
+                            break
+                        else:
+                            name_difference = {
+                                'scicrunch': scicrunch_filename, 
+                                's3': s3file_path.rsplit("/", 1)[1]
+                            }
                 
             if not file_path_match:
                 if len(name_difference) > 0:
-                    error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3 file path: {str(name_difference)}.'
+                    error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3: {str(name_difference)}.'
                     if id not in name_mapping:
                         name_mapping[id] = {}
                     name_mapping[id][scicrunch_path] = s3file_path
@@ -229,7 +234,6 @@ def test_datasets_information(dataset):
                 obj_list = source['objects'] if 'objects' in source else []
                 obj_reports = test_segmentation_list(id, version, obj_list, bucket)
                 report['ObjectErrors'] = obj_reports['FileReports']
-                # report['Errors'].extend(obj_reports["DatasetErrors"])
                 report['Segmentation'] = obj_reports['SegmentationFound']
             else:
                 report['Errors'].append('Missing version')
@@ -326,10 +330,9 @@ class SegmentationDatasetFilesTest(unittest.TestCase):
         with open(reportOutput, 'w') as outfile:
             json.dump(reports, outfile, indent=4)
         
-        if len(name_mapping) > 0:
-            os.makedirs(os.path.dirname(nameMappingOutput), exist_ok=True)
-            with open(nameMappingOutput, 'w') as outfile:
-                json.dump(name_mapping, outfile, indent=4)
+        os.makedirs(os.path.dirname(nameMappingOutput), exist_ok=True)
+        with open(nameMappingOutput, 'w') as outfile:
+            json.dump(name_mapping, outfile, indent=4)
     
         print(f"Full report has been generated at {reportOutput}")
 
