@@ -10,7 +10,7 @@ import re
 from urllib.parse import urljoin
 
 from tests.config import Config
-from tests.slow_tests.manifest_name_to_discover_name import name_map, biolucida_name_map
+from tests.slow_tests.manifest_name_to_discover_name import name_map
 
 pennsieve_cache = {}
 name_mapping = {}
@@ -303,10 +303,22 @@ class SegmentationDatasetFilesTest(unittest.TestCase):
         # scicrunch_datasets = open('reports/scicrunch_datasets.json')
         # datasets = json.load(scicrunch_datasets)
         # scicrunch_datasets.close()
-        # dataset_list = list(datasets.keys())
-        # # dataset_list = [
-        # #     '221'
-        # # ]
+        # # dataset_list = list(datasets.keys())
+        # dataset_list = [
+        #     '31', 
+        #     '64', 
+        #     '43', 
+        #     '314', 
+        #     '120', 
+        #     '115', 
+        #     '230', 
+        #     '125', 
+        #     '221', 
+        #     '60', 
+        #     '347', 
+        #     '225', 
+        #     '226'
+        # ]
 
         # '''
         # Add datasets to the queue
