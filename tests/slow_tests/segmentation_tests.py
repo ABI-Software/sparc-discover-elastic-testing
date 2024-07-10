@@ -25,6 +25,8 @@ s3 = boto3.client(
 
 S3_BUCKET_NAME = "prd-sparc-discover50-use1"
 
+NOT_SPECIFIED = 'not-specified'
+
 def get_datasets(start, size):
 
     headers = {'accept': 'application/json'}
@@ -41,6 +43,7 @@ def get_datasets(start, size):
             "item.types",
             "objects.biolucida",
             "objects.additional_mimetype",
+            "objects.mimetype",
             "objects.dataset",
             "pennsieve.version",
             "pennsieve.identifier",
@@ -188,17 +191,20 @@ def test_segmentation_list(id, version, obj_list, bucket):
     objectErrors = []
 
     for obj in obj_list:
-        mimetype = obj.get('additional_mimetype')
-        if mimetype:
-            mimetype_name = mimetype.get('name')
-            if mimetype_name in SEGMENTATION_FILES:
-                SegmentationFound = True
-                error = test_segmentation_thumbnail(id, version, obj, bucket)
-                error2 = test_segmentation_s3file(id, version, obj, bucket)
-                if error:
-                    objectErrors.append(error)
-                if error2:
-                    objectErrors.append(error2)
+        mime_type = obj.get('additional_mimetype', NOT_SPECIFIED)
+        if mime_type != NOT_SPECIFIED:
+            mime_type = mime_type.get('name')
+        if not mime_type:
+            mime_type = obj['mimetype'].get('name', NOT_SPECIFIED)
+
+        if mime_type in SEGMENTATION_FILES:
+            SegmentationFound = True
+            error = test_segmentation_thumbnail(id, version, obj, bucket)
+            error2 = test_segmentation_s3file(id, version, obj, bucket)
+            if error:
+                objectErrors.append(error)
+            if error2:
+                objectErrors.append(error2)
 
     numberOfErrors = len(objectErrors)
     fileReports = {
