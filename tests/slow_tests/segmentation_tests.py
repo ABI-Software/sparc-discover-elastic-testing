@@ -53,6 +53,19 @@ def get_datasets(start, size):
 
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
 
+def generate_redundant_detail(paths):
+    redundant_detail = {}
+
+    for path in paths:
+        filename = path.split('/')[-1]
+        folder_path = f"files/{path[:path.rfind('/')]}"
+        if folder_path in redundant_detail:
+            redundant_detail[folder_path].append(filename)
+        else:
+            redundant_detail[folder_path] = [filename]
+
+    return redundant_detail
+
 def extract_bucket_name(original_name):
     return original_name.split('/')[2]
 
@@ -189,8 +202,13 @@ def test_segmentation_list(id, version, obj_list, bucket):
         'application/vnd.mbfbioscience.neurolucida+xml'
     ]
     objectErrors = []
+    datasetErrors = []
+    segmentation_path = []
+    redundant_path = []
+    duplicateFound = False
 
     for obj in obj_list:
+        # Check if the object is a segmentation file
         mime_type = obj.get('additional_mimetype', NOT_SPECIFIED)
         if mime_type != NOT_SPECIFIED:
             mime_type = mime_type.get('name')
@@ -198,6 +216,14 @@ def test_segmentation_list(id, version, obj_list, bucket):
             mime_type = obj['mimetype'].get('name', NOT_SPECIFIED)
 
         if mime_type in SEGMENTATION_FILES:
+            # Check for duplicate segmentation
+            full_path = obj['dataset'].get('path', NOT_SPECIFIED)
+            if full_path not in segmentation_path:
+                segmentation_path.append(full_path)
+            else:
+                duplicateFound = True
+                redundant_path.append(full_path)
+
             SegmentationFound = True
             error = test_segmentation_thumbnail(id, version, obj, bucket)
             error2 = test_segmentation_s3file(id, version, obj, bucket)
@@ -206,12 +232,19 @@ def test_segmentation_list(id, version, obj_list, bucket):
             if error2:
                 objectErrors.append(error2)
 
+    if duplicateFound:
+        datasetErrors.append({
+            'Reason': 'Duplicate segmentations are found on Scicrunch.',
+            'Detail': generate_redundant_detail(redundant_path),
+            'Total': len(redundant_path),
+        })
+
     numberOfErrors = len(objectErrors)
     fileReports = {
         'Total': numberOfErrors,
         'Objects': objectErrors
     }
-    return {"FileReports": fileReports, "SegmentationFound": SegmentationFound}
+    return {"FileReports": fileReports, "DatasetErrors": datasetErrors, "SegmentationFound": SegmentationFound}
                 
 #Test the dataset 
 def test_datasets_information(dataset):
@@ -240,6 +273,7 @@ def test_datasets_information(dataset):
                 obj_list = source['objects'] if 'objects' in source else []
                 obj_reports = test_segmentation_list(id, version, obj_list, bucket)
                 report['ObjectErrors'] = obj_reports['FileReports']
+                report['Errors'].extend(obj_reports["DatasetErrors"])
                 report['Segmentation'] = obj_reports['SegmentationFound']
             else:
                 report['Errors'].append('Missing version')
