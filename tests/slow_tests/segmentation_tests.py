@@ -13,7 +13,7 @@ from tests.config import Config
 from tests.slow_tests.manifest_name_to_discover_name import name_map
 
 pennsieve_cache = {}
-name_mapping = {}
+path_mapping = {}
 doc_link = 'https://github.com/ABI-Software/scicrunch-knowledge-testing/tree/doc_v1'
 
 s3 = boto3.client(
@@ -26,6 +26,11 @@ s3 = boto3.client(
 S3_BUCKET_NAME = "prd-sparc-discover50-use1"
 
 NOT_SPECIFIED = 'not-specified'
+
+# Set to True if you want to use the mapping implementation
+# This will requirer the mapping file to be present in the same directory
+# And make sure the mapping file is up-to-date.
+MAPPING_IMPLEMENTATION = True
 
 def get_datasets(start, size):
 
@@ -79,7 +84,7 @@ def test_segmentation_s3file(id, version, obj, bucket):
         scicrunch_path = "files/" + scicrunch_path
     else:
         file_path = scicrunch_path
-    if file_path in name_map:
+    if MAPPING_IMPLEMENTATION and file_path in name_map:
         file_path = name_map[file_path]
     file_path = f'{id}/' + file_path
 
@@ -108,7 +113,7 @@ def test_segmentation_s3file(id, version, obj, bucket):
 #Test object to check for any possible error
 def test_segmentation_thumbnail(id, version, obj, bucket):
     global pennsieve_cache
-    global name_mapping
+    global path_mapping
     error_response = None
     pennsieve_path = None
     file_path = None
@@ -122,7 +127,7 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
         else:
             file_path = scicrunch_path
         # Map name for path
-        if file_path in name_map:
+        if MAPPING_IMPLEMENTATION and file_path in name_map:
             file_path = name_map[file_path]
 
         query_args = [
@@ -178,9 +183,9 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
             if not file_path_match:
                 if len(name_difference) > 0:
                     error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3: {str(name_difference)}.'
-                    if id not in name_mapping:
-                        name_mapping[id] = {}
-                    name_mapping[id][scicrunch_path] = s3file_path
+                    if id not in path_mapping:
+                        path_mapping[id] = {}
+                    path_mapping[id][scicrunch_path] = s3file_path
             else:
                 error_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file.'
         else:
@@ -286,13 +291,13 @@ class SegmentationDatasetFilesTest(unittest.TestCase):
         super().__init__(*args, **kwds)
 
     def test_files_information(self):
-        global name_mapping
+        global path_mapping
         start = 0
         size = 20
         keepGoing = True
         totalSize = 0
         reportOutput = 'reports/segmentation_reports.json'
-        nameMappingOutput = 'reports/segmentation_name_mapping.json'
+        pathMappingOutput = 'reports/segmentation_path_mapping.json'
         reports = {'Tested': 0, 'Failed': 0, 'FailedIds':[], 'Datasets':[]}
         testSize = 2000
         totalSegmentation = 0
@@ -382,9 +387,10 @@ class SegmentationDatasetFilesTest(unittest.TestCase):
         with open(reportOutput, 'w') as outfile:
             json.dump(reports, outfile, indent=4)
         
-        os.makedirs(os.path.dirname(nameMappingOutput), exist_ok=True)
-        with open(nameMappingOutput, 'w') as outfile:
-            json.dump(name_mapping, outfile, indent=4)
+        # This will generate a mapping file to list all required file path changes
+        os.makedirs(os.path.dirname(pathMappingOutput), exist_ok=True)
+        with open(pathMappingOutput, 'w') as outfile:
+            json.dump(path_mapping, outfile, indent=4)
     
         print(f"Full report has been generated at {reportOutput}")
 
