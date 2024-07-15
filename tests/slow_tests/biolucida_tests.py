@@ -13,10 +13,10 @@ from tests.slow_tests.manifest_name_to_discover_name import name_map, biolucida_
 pennsieveCache = {}
 pennsieveMetadataCache = {}
 nameMapping = {
-    "***dataset_id***": {
-        "***biolucida_id***": {
-            "***scicrunch_file_path***" : {
-                "***image_name_in_biolucida***": "***filename_in_scicrunch_file_path***"
+    "***example_dataset_id***": {
+        "***example_biolucida_id***": {
+            "***example_scicrunch_file_path***" : {
+                "***example_image_name_in_biolucida***": "***example_filename_in_scicrunch_file_path***"
             }
         }
     }
@@ -208,7 +208,7 @@ def testBiolucidaAndScicrunch(imageName, localPath, dataset_id, biolucida_id, na
         }
 
 #Test object to check for any possible error
-def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype, duplicate_biolucida):
+def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
     fileErrors = []
     fileResponse = None
     localPath = None
@@ -357,9 +357,28 @@ def test_biolucida_list(dataset_id, version, obj_list, bucket):
         })
 
     if duplicateFound:
+        # Duplicate objects have same biolucida id but name may be different
+        # Remove the object errors for duplicate images
+        # Remove the name mapping for duplicate images
+        removed_errors = []
+        for object_error in objectErrors:
+            if object_error['biolucida_id'] in duplicate_biolucida and 'Conflict between' in object_error['Reason']:
+                pass
+            else:
+                removed_errors.append(object_error)
+        objectErrors = removed_errors
+        
+        if dataset_id in nameMapping:
+            for biolucida_id in duplicate_biolucida:
+                if biolucida_id in nameMapping[dataset_id]:
+                    del nameMapping[dataset_id][biolucida_id]
+            if len(nameMapping[dataset_id]) == 0:
+                del nameMapping[dataset_id]
+
         datasetErrors.append({
             'Reason': 'Duplicate image ids are found on Scicrunch.',
-            'Detail': 'Redundant images with id ***{ids}***.'.format(ids=', '.join(set(duplicate_biolucida)))
+            'Detail': 'Redundant images are ***{ids}***.'.format(ids=', '.join(set(duplicate_biolucida))),
+            'Further': 'Multiple biolucida objects have same id but different name may cause further issues in thumbnail or viewer.'
         })
 
     numberOfErrors = len(objectErrors)
