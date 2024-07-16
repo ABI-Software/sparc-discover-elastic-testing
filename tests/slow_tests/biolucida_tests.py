@@ -13,12 +13,17 @@ from tests.slow_tests.manifest_name_to_discover_name import name_map, biolucida_
 pennsieveCache = {}
 pennsieveMetadataCache = {}
 nameMapping = {
-    "***example_dataset_id***": {
-        "***example_biolucida_id***": {
-            "***example_scicrunch_file_path***" : {
-                "***example_image_name_in_biolucida***": "***example_filename_in_scicrunch_file_path***"
+    'Note': {
+        'Format': {
+            "dataset_id": {
+                "biolucida_id": {
+                    "scicrunch_file_path" : {
+                        "image_name_in_biolucida": "filename_in_scicrunch_file_path"
+                    }
+                }
             }
-        }
+        },
+        'Message': 'Not all listed name mappings are required. Better to go through the mapping file and check before using in the sparc api.'
     }
 }
 pathMapping = {}
@@ -95,6 +100,7 @@ def extract_bucket_name(original_name):
 def compareWithMetadataFromPennsieve(dataset_id, version, fileName, filePath):
     global pennsieveMetadataCache
     global pathMapping
+    error_response = {}
     files_metadata = []
     key = f'{dataset_id}_{version}'
 
@@ -118,7 +124,11 @@ def compareWithMetadataFromPennsieve(dataset_id, version, fileName, filePath):
                 if dataset_id not in pathMapping:
                     pathMapping[dataset_id] = {}
                 pathMapping[dataset_id][filePath] = file_metadata['path']
-                return file_metadata['path']
+                error_response['Detail'] = f'Correct file path is found through Pennsieve metadata.'
+                error_response['PathMappingRequired'] = 'Please check the path mapping file output for more information.'
+                if filePath in name_map:
+                    error_response['PathMappingSolved'] = 'This is a known inconsistency issue which has been manually mapped in the sparc api.'
+                return error_response
 
 def fetchFilesFromPennsieve(dataset_id, version, folderPath):
     global pennsieveCache
@@ -140,6 +150,10 @@ def fetchFilesFromPennsieve(dataset_id, version, folderPath):
     return files
     
 def testScicrunchAndPennsieve(localPath, dataset_id, version, biolucida_id):
+    error_response = {
+        'scicrunch_path': localPath,
+        'biolucida_id': biolucida_id,
+    }
     # Check if the file path is consistent between Scicrunch and Pennsieve
     filePath = localPath
     folderPath = filePath.rsplit("/", 1)[0]
@@ -162,25 +176,17 @@ def testScicrunchAndPennsieve(localPath, dataset_id, version, biolucida_id):
                         foundFile = True
                         break
         if not foundFile:
-            response = {
-                'scicrunch_path': localPath,
-                'biolucida_id': biolucida_id,
-                'Reason': 'File path cannot be found on Pennsieve.',
-            }
-            pennsieve_file_path = compareWithMetadataFromPennsieve(dataset_id, version, fileName, filePath)
-            if pennsieve_file_path:
-                response['Detail'] = f'Correct file path ***{pennsieve_file_path}*** is found through Pennsieve metadata.'
-            return response
+            error_response['Reason'] = 'File path cannot be found on Pennsieve.'
+            compare_response = compareWithMetadataFromPennsieve(dataset_id, version, fileName, filePath)
+            if compare_response:
+                error_response.update(compare_response)
+            return error_response
     else:
-        response = {
-            'scicrunch_path': localPath,
-            'biolucida_id': biolucida_id,
-            'Reason': 'Folder path cannot be found on Pennsieve.',
-        }
-        pennsieve_file_path = compareWithMetadataFromPennsieve(dataset_id, version, fileName, filePath)
-        if pennsieve_file_path:
-                response['Detail'] = f'Correct file path ***{pennsieve_file_path}*** is found through Pennsieve metadata.'
-        return response
+        error_response['Reason'] = 'Folder path cannot be found on Pennsieve.'
+        compare_response = compareWithMetadataFromPennsieve(dataset_id, version, fileName, filePath)
+        if compare_response:
+            error_response.update(compare_response)
+        return error_response
 
 def testBiolucidaAndScicrunch(imageName, localPath, dataset_id, biolucida_id, navigate_type):
     global nameMapping
@@ -192,6 +198,13 @@ def testBiolucidaAndScicrunch(imageName, localPath, dataset_id, biolucida_id, na
         filePath = pathMapping[dataset_id][filePath]
 
     if imageName != filePath.split("/")[-1]:
+        error_response = {
+            'scicrunch_path': localPath,
+            'biolucida_id': biolucida_id,
+            'Reason': 'Conflict between scicrunch and biolucida response.',
+            'Detail': f'{navigate_type}: Biolucida filename does not match with the filename in Pennsieve-mapped Scicrunch path.',
+        }
+
         # Then generate the name mapping between Biolucida and Scicrunch
         if dataset_id not in nameMapping:
             nameMapping[dataset_id] = {}
@@ -200,12 +213,11 @@ def testBiolucidaAndScicrunch(imageName, localPath, dataset_id, biolucida_id, na
         if filePath not in nameMapping[dataset_id][biolucida_id]:
             nameMapping[dataset_id][biolucida_id][filePath] = {}
         nameMapping[dataset_id][biolucida_id][filePath][imageName] = filePath.split("/")[-1]
-        return {
-            'scicrunch_path': localPath,
-            'biolucida_id': biolucida_id,
-            'Reason': 'Conflict between scicrunch and biolucida response.',
-            'Detail': f'{navigate_type}: Biolucida filename ***{imageName}*** does not match the filename in Scicrunch path.',
-        }
+
+        error_response['NameMappingRequired'] = 'Please check the name mapping file output for more information.'
+        if imageName in biolucida_name_map:
+            error_response['NameMappingSolved'] = 'This is a known inconsistency issue which has been manually mapped in the sparc api.'
+        return error_response
 
 #Test object to check for any possible error
 def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
@@ -213,7 +225,7 @@ def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
     fileResponse = None
     localPath = None
     imageName = None
-    navigate_type = 'Directly to file page' if mimetype in BIOLUCIDA_2D else 'Redirect via biolucidaviewer page'
+    navigate_type = 'Direct to FILE VIEWER' if mimetype in BIOLUCIDA_2D else 'Redirect via BIOLUCIDA VIEWER'
 
     localPath = obj['dataset']['path']
     if "files/" not in localPath:
@@ -360,13 +372,13 @@ def test_biolucida_list(dataset_id, version, obj_list, bucket):
         # Duplicate objects have same biolucida id but name may be different
         # Remove the object errors for duplicate images
         # Remove the name mapping for duplicate images
-        removed_errors = []
-        for object_error in objectErrors:
-            if object_error['biolucida_id'] in duplicate_biolucida and 'Conflict between' in object_error['Reason']:
+        remain_errors = []
+        for error in objectErrors:
+            if error['biolucida_id'] in duplicate_biolucida and 'Conflict between' in error['Reason']:
                 pass
             else:
-                removed_errors.append(object_error)
-        objectErrors = removed_errors
+                remain_errors.append(error)
+        objectErrors = remain_errors
         
         if dataset_id in nameMapping:
             for biolucida_id in duplicate_biolucida:
@@ -377,8 +389,9 @@ def test_biolucida_list(dataset_id, version, obj_list, bucket):
 
         datasetErrors.append({
             'Reason': 'Duplicate image ids are found on Scicrunch.',
-            'Detail': 'Redundant images are ***{ids}***.'.format(ids=', '.join(set(duplicate_biolucida))),
-            'Further': 'Multiple biolucida objects have same id but different name may cause further issues in thumbnail or viewer.'
+            'Detail': 'Redundant images are found on {ids}.'.format(ids=', '.join(set(duplicate_biolucida))),
+            'Total': len(duplicate_biolucida),
+            'Further': 'Same biolucida id but different name may cause further issues in thumbnail or viewer.'
         })
 
     numberOfErrors = len(objectErrors)
@@ -386,6 +399,37 @@ def test_biolucida_list(dataset_id, version, obj_list, bucket):
         'Total': numberOfErrors,
         'Objects': objectErrors
     }
+    numberOfInconsistency = 0
+    numberOfNameInconsistency = 0
+    numberOfPathInconsistency = 0
+    numberOfNameMapped = 0
+    numberOfPathMapped = 0
+    for error in objectErrors:
+        if 'NameMappingRequired' in error:
+            numberOfNameInconsistency += 1
+        if 'PathMappingRequired' in error:
+            numberOfPathInconsistency += 1
+        if 'NameMappingSolved' in error:
+            numberOfNameMapped += 1
+        if 'PathMappingSolved' in error:
+            numberOfPathMapped += 1
+    numberOfInconsistency = numberOfNameInconsistency + numberOfPathInconsistency
+    if numberOfInconsistency > 0:
+        fileReports['Inconsistency'] = {
+            'Total': numberOfInconsistency,
+        }
+        if numberOfNameInconsistency > 0:
+            fileReports['Inconsistency']['Name'] = {
+                'Total': numberOfNameInconsistency,
+                'NameMapped': numberOfNameMapped,
+                'NameUnMapped': numberOfNameInconsistency - numberOfNameMapped,
+            }
+        if numberOfPathInconsistency > 0:
+            fileReports['Inconsistency']['Path'] = {
+                'Total': numberOfPathInconsistency,
+                'NameMapped': numberOfPathMapped,
+                'NameUnMapped': numberOfPathInconsistency - numberOfPathMapped,
+            }
     return {"FileReports": fileReports, "DatasetWarnings": DatasetWarnings, "DatasetErrors": datasetErrors, "BiolucidaFound": biolucidaFound}
                 
 #Test the dataset 
