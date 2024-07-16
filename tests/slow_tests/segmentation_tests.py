@@ -30,7 +30,7 @@ NOT_SPECIFIED = 'not-specified'
 # Set to True if you want to use the mapping implementation
 # This will requirer the mapping file to be present in the same directory
 # And make sure the mapping file is up-to-date.
-MAPPING_IMPLEMENTATION = True
+MAPPING_IMPLEMENTATION = False
 
 def get_datasets(start, size):
 
@@ -182,14 +182,21 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
                 
             if not file_path_match:
                 if len(name_difference) > 0:
-                    error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3: {str(name_difference)}.'
+                    error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3.'
+
+                    # Then generate the path mapping between Scicrunch and S3
                     if id not in path_mapping:
                         path_mapping[id] = {}
                     path_mapping[id][scicrunch_path] = s3file_path
+
+                    error_response['MappingRequired'] = 'Please check the path mapping file output for more information.'
+                    # Check if the file path is known to be inconsistent
+                    if scicrunch_path in name_map:
+                        error_response['MappingSolved'] = 'This is a known inconsistency issue which has been manually mapped in the sparc api.'
             else:
                 error_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file.'
         else:
-            error_response['Detail'] = 'Folder path cannot be found on Pennsieve. Please check the path.'
+            error_response['Detail'] = 'Folder path cannot be found on Pennsieve. Please check the file path.'
 
     except Exception as e:
         error_response = {
@@ -247,8 +254,21 @@ def test_segmentation_list(id, version, obj_list, bucket):
     numberOfErrors = len(objectErrors)
     fileReports = {
         'Total': numberOfErrors,
-        'Objects': objectErrors
+        'Objects': objectErrors,
     }
+    numberOfInconsistency = 0
+    numberOfMapped = 0
+    for error in objectErrors:
+        if 'MappingRequired' in error:
+            numberOfInconsistency = numberOfInconsistency + 1
+        if 'MappingSolved' in error:
+            numberOfMapped = numberOfMapped + 1
+    if numberOfInconsistency > 0:
+        fileReports['Inconsistency'] = {
+            'Total': numberOfInconsistency,
+            'Mapped': numberOfMapped,
+            'Unmapped': numberOfInconsistency - numberOfMapped
+        }
     return {"FileReports": fileReports, "DatasetErrors": datasetErrors, "SegmentationFound": SegmentationFound}
                 
 #Test the dataset 
