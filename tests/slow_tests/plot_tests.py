@@ -29,7 +29,7 @@ PLOT_FILE = [
     'text/vnd.abi.plot+csv'
 ]
 # mimetype: additional_mimetype
-THUMBNAIL_IMAGE = {
+COMMON_TO_THUMBNAIL = {
     'image/jpeg': 'image/x.vnd.abi.thumbnail+jpeg', 
     'image/png': 'image/x.vnd.abi.thumbnail+png'
 }
@@ -69,71 +69,80 @@ def test_plot_thumbnail_s3file(dataset_id, thumbnail_object, s3_bucket):
 
     scicrunch_path = thumbnail_object['dataset']['path']
     if "files/" not in scicrunch_path:
-        file_path = "files/" + scicrunch_path
         scicrunch_path = "files/" + scicrunch_path
-    else:
-        file_path = scicrunch_path
-    file_path = f'{dataset_id}/' + file_path
+    scicrunch_path = f'{dataset_id}/' + scicrunch_path
 
     try:
         head_response = s3.head_object(
             Bucket=s3_bucket,
-            Key=file_path,
+            Key=scicrunch_path,
             RequestPayer="requester"
         )
         if head_response and 'ResponseMetadata' in head_response and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
             pass
         else:
             return {
-                'S3Path': file_path,
+                'S3Path': scicrunch_path,
                 'Reason': 'Invalid response',
             }
     except botocore.exceptions.ClientError as error:
         return {
-            'S3Path': file_path,
+            'S3Path': scicrunch_path,
             'Reason': f"{error}",
         }
+
     return None
 
 def test_plot_thumbnail(dataset_id, plot_object, object_list, s3_bucket):
-    thumbnail_name = None
-    plot_name = plot_object['name']
-    scicrunch_path = plot_object['dataset']['path']
-    thumbnail_path = plot_object['datacite']['isSourceOf'].get('path', NOT_SPECIFIED)
-    error_response = {
-        'ScicrunchPath': scicrunch_path,
-    }
     file_response = []
+    plot_name = plot_object['name']
+    plot_scicrunch_path = plot_object['dataset']['path']
+    thumbnail_name = None
+    thumbnail_scicrunch_path = None
+    is_source_of = plot_object['datacite']['isSourceOf'].get('path', NOT_SPECIFIED)
 
-    if thumbnail_path != NOT_SPECIFIED:
-        thumbnail_name = thumbnail_path[0].split('/')[-1]
+    if "files/" not in plot_scicrunch_path:
+        plot_scicrunch_path = "files/" + plot_scicrunch_path
+    if is_source_of != NOT_SPECIFIED:
+        thumbnail_name = is_source_of[0].split('/')[-1]
+
     for thumbnail_object in object_list:
+        # Plot file should be the source of the thumbnail
         if thumbnail_name and thumbnail_name == thumbnail_object.get('name'):
+            thumbnail_scicrunch_path = thumbnail_object['dataset']['path']
+            if "files/" not in thumbnail_scicrunch_path:
+                thumbnail_scicrunch_path = "files/" + thumbnail_scicrunch_path
+
+            # Plot thumbnail should be derived from the plot file
             plot_path = thumbnail_object['datacite']['isDerivedFrom'].get('path', NOT_SPECIFIED)
             if plot_path == NOT_SPECIFIED or plot_name not in plot_path[0]:
                 return [{
-                    'ScicrunchPath': scicrunch_path,
-                    'Reason': 'Thumbnail isDerivedFrom does not match with plot name.',
+                    'PlotPath': plot_scicrunch_path,
+                    'ThumbnailPath': thumbnail_scicrunch_path,
+                    'Reason': 'Thumbnail isDerivedFrom does not contain correct plot name.',
                 }]
 
+            # Check if additional mimetype is valid in sparc api
             mime_type = thumbnail_object.get('additional_mimetype', NOT_SPECIFIED)
             if mime_type != NOT_SPECIFIED:
                 mime_type = mime_type.get('name')
-            if not mime_type or mime_type not in THUMBNAIL_IMAGE.values():
+            if not mime_type or mime_type not in COMMON_TO_THUMBNAIL.values():
                 error_response = {
-                    'ScicrunchPath': scicrunch_path,
-                    'Reason': f'Additional mimetype ***{mime_type}*** is invalid.',
-                    'UpdateRequired': 'See following detail for correct additional mimetype.'
+                    'PlotPath': plot_scicrunch_path,
+                    'ThumbnailPath': thumbnail_scicrunch_path,
+                    'Reason': f'Thumbnail additional mimetype *** {mime_type} *** not exists in sparc api.',
+                    'UpdateRequired': 'Check following detail for more information.'
                 }
+                # Figure out the correct additional mimetype by using mimetype
                 mime_type = thumbnail_object['mimetype'].get('name', NOT_SPECIFIED)
-                if mime_type in THUMBNAIL_IMAGE.keys():
-                    error_response['Detail'] = f'Correct additional mimetype should be ***{THUMBNAIL_IMAGE[mime_type]}***.'
+                if mime_type in COMMON_TO_THUMBNAIL.keys():
+                    error_response['UpdateDetail'] = f'Correct additional mimetype should be *** {COMMON_TO_THUMBNAIL[mime_type]} ***.'
                 file_response.append(error_response)
 
+                # Check if the file exists in s3
                 error = test_plot_thumbnail_s3file(dataset_id, thumbnail_object, s3_bucket)
                 if error:
                     file_response.append(error)
-
                 return file_response
 
 def test_plot_list(dataset_id, object_list, s3_bucket):
@@ -213,77 +222,77 @@ class PlotDatasetFilesTest(unittest.TestCase):
         testSize = 2000
         totalPlot = 0
 
-        '''
-        Test selected datasets
-        '''
-        scicrunch_datasets = open('reports/scicrunch_datasets.json')
-        datasets = json.load(scicrunch_datasets)
-        scicrunch_datasets.close()
-        # dataset_list = list(datasets.keys())
-        dataset_list = [
-            '212', 
-            '26', 
-            '148', 
-            '114', 
-            '126', 
-            '139', 
-            '142', 
-            '46', 
-            '117', 
-            '29', 
-            '132', 
-            '118', 
-            '119'
-        ]
-
-        '''
-        Add datasets to the queue
-        '''
-        data = {'hits': {'hits': []}}
-        for dataset_id in dataset_list:
-            data['hits']['hits'].append(datasets[dataset_id])
-
-        for dataset in data['hits']['hits']:
-            report = test_datasets_information(dataset)
-            if 'Plot' in report and report['Plot']:
-                totalPlot = totalPlot + 1
-            print(f"Reports generated for {report['Id']}")
-            if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
-                reports['FailedIds'].append(report['Id'])
-                reports['Datasets'].append(report)
-
-        totalSize = totalSize + len(data['hits']['hits'])
+        # '''
+        # Test selected datasets
+        # '''
+        # scicrunch_datasets = open('reports/scicrunch_datasets.json')
+        # datasets = json.load(scicrunch_datasets)
+        # scicrunch_datasets.close()
+        # # dataset_list = list(datasets.keys())
+        # dataset_list = [
+        #     '212', 
+        #     '26', 
+        #     '148', 
+        #     '114', 
+        #     '126', 
+        #     '139', 
+        #     '142', 
+        #     '46', 
+        #     '117', 
+        #     '29', 
+        #     '132', 
+        #     '118', 
+        #     '119'
+        # ]
 
         # '''
-        # Test all the datasets
+        # Add datasets to the queue
         # '''
-        # while keepGoing :
-        #     scicrunch_response = get_datasets(start, size)
-        #     self.assertEqual(200, scicrunch_response.status_code)
+        # data = {'hits': {'hits': []}}
+        # for dataset_id in dataset_list:
+        #     data['hits']['hits'].append(datasets[dataset_id])
 
-        #     data = scicrunch_response.json()
+        # for dataset in data['hits']['hits']:
+        #     report = test_datasets_information(dataset)
+        #     if 'Plot' in report and report['Plot']:
+        #         totalPlot = totalPlot + 1
+        #     print(f"Reports generated for {report['Id']}")
+        #     if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
+        #         reports['FailedIds'].append(report['Id'])
+        #         reports['Datasets'].append(report)
 
-        #     #No more result, stop
-        #     if size > len(data['hits']['hits']):
-        #         keepGoing = False
+        # totalSize = totalSize + len(data['hits']['hits'])
 
-        #     #keepGoing= False
+        '''
+        Test all the datasets
+        '''
+        while keepGoing :
+            scicrunch_response = get_datasets(start, size)
+            self.assertEqual(200, scicrunch_response.status_code)
 
-        #     start = start + size
+            data = scicrunch_response.json()
 
-        #     for dataset in data['hits']['hits']:
-        #         report = test_datasets_information(dataset)
-        #         if 'Plot' in report and report['Plot']:
-        #             totalPlot = totalPlot + 1
-        #         print(f"Reports generated for {report['Id']}")
-        #         if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
-        #             reports['FailedIds'].append(report['Id'])
-        #             reports['Datasets'].append(report)
+            #No more result, stop
+            if size > len(data['hits']['hits']):
+                keepGoing = False
 
-        #     totalSize = totalSize + len(data['hits']['hits'])
+            #keepGoing= False
 
-        #     if totalSize >= testSize:
-        #         keepGoing = False
+            start = start + size
+
+            for dataset in data['hits']['hits']:
+                report = test_datasets_information(dataset)
+                if 'Plot' in report and report['Plot']:
+                    totalPlot = totalPlot + 1
+                print(f"Reports generated for {report['Id']}")
+                if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
+                    reports['FailedIds'].append(report['Id'])
+                    reports['Datasets'].append(report)
+
+            totalSize = totalSize + len(data['hits']['hits'])
+
+            if totalSize >= testSize:
+                keepGoing = False
 
         # Generate the report
         reports['Tested'] = totalSize
