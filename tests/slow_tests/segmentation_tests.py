@@ -46,7 +46,6 @@ def get_datasets(start, size):
             "item.curie",
             "item.name",
             "item.types",
-            "objects.biolucida",
             "objects.additional_mimetype",
             "objects.mimetype",
             "objects.dataset",
@@ -149,8 +148,7 @@ def test_segmentation_thumbnail(id, version, obj, bucket):
         if folderPath in pennsieve_cache:
             files = pennsieve_cache[folderPath]
         else:
-            file_url = '{api}/datasets/{id}/versions/{version}/files/browse?path={folderPath}'.format( 
-                api=Config.PENNSIEVE_API_HOST, id=id, version=version, folderPath=folderPath)
+            file_url = f'{Config.PENNSIEVE_API_HOST}/datasets/{id}/versions/{version}/files/browse?path={folderPath}'
             file_response = requests.get(file_url)
             files_info = file_response.json()
             if 'files' in files_info:

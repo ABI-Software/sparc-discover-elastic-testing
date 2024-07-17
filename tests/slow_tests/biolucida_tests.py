@@ -151,8 +151,8 @@ def fetchFilesFromPennsieve(dataset_id, version, folderPath):
     
 def testScicrunchAndPennsieve(localPath, dataset_id, version, biolucida_id):
     error_response = {
-        'scicrunch_path': localPath,
-        'biolucida_id': biolucida_id,
+        'ScicrunchPath': localPath,
+        'BiolucidaId': biolucida_id,
     }
     # Check if the file path is consistent between Scicrunch and Pennsieve
     filePath = localPath
@@ -199,8 +199,8 @@ def testBiolucidaAndScicrunch(imageName, localPath, dataset_id, biolucida_id, na
 
     if imageName != filePath.split("/")[-1]:
         error_response = {
-            'scicrunch_path': localPath,
-            'biolucida_id': biolucida_id,
+            'ScicrunchPath': localPath,
+            'BiolucidaId': biolucida_id,
             'Reason': 'Conflict between scicrunch and biolucida response.',
             'Detail': f'{navigate_type}: Biolucida filename does not match with the filename in Pennsieve-mapped Scicrunch path.',
         }
@@ -238,8 +238,8 @@ def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
         biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/image/{biolucida_id}')
         if not biolucida_response.status_code == 200:
             return [{
-                'scicrunch_path': localPath,
-                'biolucida_id': biolucida_id,
+                'ScicrunchPath': localPath,
+                'BiolucidaId': biolucida_id,
                 'Reason': f'{navigate_type}: Cannot get a valid request from Biolucida.',
             }]
             
@@ -247,8 +247,8 @@ def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
 
         if image_info['status'] == "permission denied":
             return [{
-                'scicrunch_path': localPath,
-                'biolucida_id': biolucida_id,
+                'ScicrunchPath': localPath,
+                'BiolucidaId': biolucida_id,
                 'Reason': f'{navigate_type}: Biolucida permission denied.',
             }]
 
@@ -260,8 +260,8 @@ def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
 
         else:
             return [{
-                'scicrunch_path': localPath,
-                'biolucida_id': biolucida_id,
+                'ScicrunchPath': localPath,
+                'BiolucidaId': biolucida_id,
                 'Reason': f'{navigate_type}: Image name cannot be found on Biolucida.',
             }]
 
@@ -278,8 +278,8 @@ def testBiolucida(dataset_id, version, obj, biolucida_id, bucket, mimetype):
 
     except Exception as e:    
         fileResponse = {
-            'scicrunch_path': localPath,
-            'biolucida_id': biolucida_id,
+            'ScicrunchPath': localPath,
+            'BiolucidaId': biolucida_id,
             'Reason': str(e)
         }
         fileErrors.append(fileResponse)
@@ -374,7 +374,7 @@ def test_biolucida_list(dataset_id, version, obj_list, bucket):
         # Remove the name mapping for duplicate images
         remain_errors = []
         for error in objectErrors:
-            if error['biolucida_id'] in duplicate_biolucida and 'Conflict between' in error['Reason']:
+            if error['BiolucidaId'] in duplicate_biolucida and 'Conflict between' in error['Reason']:
                 pass
             else:
                 remain_errors.append(error)
@@ -486,137 +486,137 @@ class BiolucidaDatasetFilesTest(unittest.TestCase):
         testSize = 2000
         totalBiolucida = 0
 
-        # '''
-        # Test selected datasets
-        # '''
-        # scicrunch_datasets = open('reports/scicrunch_datasets.json')
-        # datasets = json.load(scicrunch_datasets)
-        # scicrunch_datasets.close()
-        # # dataset_list = list(datasets.keys())
-        # dataset_list = [
-        #     # warning
-        #     "22",
-        #     "296",
-        #     "64",
-        #     "109",
-        #     "90",
-        #     "304",
-        #     "137",
-        #     "175",
-        #     "43",
-        #     "82",
-        #     "332",
-        #     "77",
-        #     "187",
-        #     "37",
-        #     "61",
-        #     "290",
-        #     "16",
-        #     "348",
-        #     "366",
-        #     "383",
-        #     "230",
-        #     "125",
-        #     "75",
-        #     "73",
-        #     "36",
-        #     "54",
-        #     "60",
-        #     "234",
-        #     "240",
-        #     "56",
-        #     "21",
-        #     "97",
-        #     "32",
-        #     "85",
-        #     "89",
-        #     "369",
-        #     "29",
-        #     "367",
-        #     "388",
-        #     "386",
-        #     "161",
-        #     "293",
-        #     "88",
-        #     "382",
-        #     "385",
-        #     "287",
-        #     # fail
-        #     "345",
-        #     "107",
-        #     "158",
-        #     "321",
-        #     "265",
-        #     "381",
-        #     "389",
-        #     "221",
-        #     "205",
-        #     "373",
-        #     "65",
-        #     "204",
-        #     "108",
-        #     "178"
-        # ]
-
-        # '''
-        # Add datasets to the queue
-        # '''
-        # data = {'hits': {'hits': []}}
-        # for dataset_id in dataset_list:
-        #     data['hits']['hits'].append(datasets[dataset_id])
-
-        # for dataset in data['hits']['hits']:
-        #     report = test_datasets_information(dataset)
-        #     if 'Biolucida' in report and report['Biolucida']:
-        #         totalBiolucida = totalBiolucida + 1
-        #     print(f"Reports generated for {report['Id']}")
-        #     if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
-        #         reports['FailedIds'].append(report['Id'])
-        #         reports['FailedDatasets'].append(report)
-        #     else:
-        #         if len(report['Warnings']) > 0:
-        #             reports['WarnedIds'].append(report['Id'])
-        #             reports['WarnedDatasets'].append(report)
-
-        # totalSize = totalSize + len(data['hits']['hits'])
-
-        # if totalSize >= testSize:
-        #     keepGoing = False
+        '''
+        Test selected datasets
+        '''
+        scicrunch_datasets = open('reports/scicrunch_datasets.json')
+        datasets = json.load(scicrunch_datasets)
+        scicrunch_datasets.close()
+        # dataset_list = list(datasets.keys())
+        dataset_list = [
+            # warning
+            "22",
+            "296",
+            "64",
+            "109",
+            "90",
+            "304",
+            "137",
+            "175",
+            "43",
+            "82",
+            "332",
+            "77",
+            "187",
+            "37",
+            "61",
+            "290",
+            "16",
+            "348",
+            "366",
+            "383",
+            "230",
+            "125",
+            "75",
+            "73",
+            "36",
+            "54",
+            "60",
+            "234",
+            "240",
+            "56",
+            "21",
+            "97",
+            "32",
+            "85",
+            "89",
+            "369",
+            "29",
+            "367",
+            "388",
+            "386",
+            "161",
+            "293",
+            "88",
+            "382",
+            "385",
+            "287",
+            # fail
+            "345",
+            "107",
+            "158",
+            "321",
+            "265",
+            "381",
+            "389",
+            "221",
+            "205",
+            "373",
+            "65",
+            "204",
+            "108",
+            "178"
+        ]
 
         '''
-        Test all the datasets
+        Add datasets to the queue
         '''
-        while keepGoing :
-            scicrunch_response = getDatasets(start, size)
-            self.assertEqual(200, scicrunch_response.status_code)
+        data = {'hits': {'hits': []}}
+        for dataset_id in dataset_list:
+            data['hits']['hits'].append(datasets[dataset_id])
 
-            data = scicrunch_response.json()
+        for dataset in data['hits']['hits']:
+            report = test_datasets_information(dataset)
+            if 'Biolucida' in report and report['Biolucida']:
+                totalBiolucida = totalBiolucida + 1
+            print(f"Reports generated for {report['Id']}")
+            if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
+                reports['FailedIds'].append(report['Id'])
+                reports['FailedDatasets'].append(report)
+            else:
+                if len(report['Warnings']) > 0:
+                    reports['WarnedIds'].append(report['Id'])
+                    reports['WarnedDatasets'].append(report)
 
-            #No more result, stop
-            if size > len(data['hits']['hits']):
-                keepGoing = False
+        totalSize = totalSize + len(data['hits']['hits'])
 
-            #keepGoing= False
+        if totalSize >= testSize:
+            keepGoing = False
 
-            start = start + size
+        # '''
+        # Test all the datasets
+        # '''
+        # while keepGoing :
+        #     scicrunch_response = getDatasets(start, size)
+        #     self.assertEqual(200, scicrunch_response.status_code)
 
-            for dataset in data['hits']['hits']:
-                report = test_datasets_information(dataset)
-                if 'Biolucida' in report and report['Biolucida']:
-                    totalBiolucida = totalBiolucida + 1
-                print(f"Reports generated for {report['Id']}")
-                if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
-                    reports['FailedIds'].append(report['Id'])
-                    reports['FailedDatasets'].append(report)
-                else:
-                    if len(report['Warnings']) > 0:
-                        reports['WarnedIds'].append(report['Id'])
-                        reports['WarnedDatasets'].append(report)
+        #     data = scicrunch_response.json()
 
-            totalSize = totalSize + len(data['hits']['hits'])
+        #     #No more result, stop
+        #     if size > len(data['hits']['hits']):
+        #         keepGoing = False
 
-            if totalSize >= testSize:
-                keepGoing = False
+        #     #keepGoing= False
+
+        #     start = start + size
+
+        #     for dataset in data['hits']['hits']:
+        #         report = test_datasets_information(dataset)
+        #         if 'Biolucida' in report and report['Biolucida']:
+        #             totalBiolucida = totalBiolucida + 1
+        #         print(f"Reports generated for {report['Id']}")
+        #         if len(report['Errors']) > 0 or report['ObjectErrors']['Total'] > 0:
+        #             reports['FailedIds'].append(report['Id'])
+        #             reports['FailedDatasets'].append(report)
+        #         else:
+        #             if len(report['Warnings']) > 0:
+        #                 reports['WarnedIds'].append(report['Id'])
+        #                 reports['WarnedDatasets'].append(report)
+
+        #     totalSize = totalSize + len(data['hits']['hits'])
+
+        #     if totalSize >= testSize:
+        #         keepGoing = False
 
         # Generate the report
         reports['Tested'] = totalSize
