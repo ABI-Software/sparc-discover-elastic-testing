@@ -27,6 +27,11 @@ S3_BUCKET_NAME = "prd-sparc-discover50-use1"
 
 NOT_SPECIFIED = 'not-specified'
 
+SEGMENTATION_FILES = [
+    'application/vnd.mbfbioscience.metadata+xml', 
+    'application/vnd.mbfbioscience.neurolucida+xml'
+]
+
 # Set to True if you want to use the mapping implementation
 # This will requirer the mapping file to be present in the same directory
 # And make sure the mapping file is up-to-date.
@@ -73,174 +78,188 @@ def generate_redundant_detail(paths):
 def extract_bucket_name(original_name):
     return original_name.split('/')[2]
 
-def test_segmentation_s3file(id, version, obj, bucket):
-    file_path = None
-
-    mime_type = obj['additional_mimetype']['name']
-    scicrunch_path = obj['dataset']['path']
-    if "files/" not in scicrunch_path:
-        file_path = "files/" + scicrunch_path
-        scicrunch_path = "files/" + scicrunch_path
-    else:
-        file_path = scicrunch_path
-    if MAPPING_IMPLEMENTATION and file_path in name_map:
-        file_path = name_map[file_path]
-    file_path = f'{id}/' + file_path
-
+def test_segmentation_s3file(dataset_id, segmentation_object, bucket, scicrunch_path):
+    # When mapping not implemented, use the pathMapping cache to get the Pennsieve file path to test S3 file
+    if not MAPPING_IMPLEMENTATION and dataset_id in path_mapping and scicrunch_path in path_mapping[dataset_id]:
+        scicrunch_path = path_mapping[dataset_id][scicrunch_path]
+    scicrunch_path = f'{dataset_id}/' + scicrunch_path
+    
     try:
         head_response = s3.head_object(
             Bucket=bucket,
-            Key=file_path,
+            Key=scicrunch_path,
             RequestPayer="requester"
         )
         if head_response and 'ResponseMetadata' in head_response and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
             pass
         else:
             return {
-                'Mimetype': mime_type,
-                'Path': file_path,
+                'S3Path': scicrunch_path,
                 'Reason': 'Invalid response',
             }
     except botocore.exceptions.ClientError as error:
         return {
-            'Mimetype': mime_type,
-            'Path': file_path,
-            'Reason': f"{error}",
+            'S3Path': scicrunch_path,
+            'Reason': f'{error}',
         }
+
     return None
 
-#Test object to check for any possible error
-def test_segmentation_thumbnail(id, version, obj, bucket):
+def test_scicrunch_and_neurolucida(dataset_id, version, scicrunch_path):
+    # When mapping not implemented, use the pathMapping cache to get the Pennsieve file path to test S3 file
+    if not MAPPING_IMPLEMENTATION and dataset_id in path_mapping and scicrunch_path in path_mapping[dataset_id]:
+        scicrunch_path = path_mapping[dataset_id][scicrunch_path]
+
+    query_args = [
+        ('datasetId', dataset_id), 
+        ('version', version), 
+        ('path', scicrunch_path)
+    ]
+    url = f"{Config.NEUROLUCIDA_HOST}/thumbnail"
+    response = requests.get(url, params=query_args)
+    if response.status_code != 200:
+        return {
+            'ScicrunchPath': scicrunch_path,
+            'Reason': 'Cannot get a valid request from NeuroLucida',
+            'Detail': 'Possibly incorrect file path is used.'
+        }
+
+    return None
+
+def fetchFilesFromPennsieve(dataset_id, version, folder_path):
     global pennsieve_cache
+
+    files = []
+
+    if folder_path in pennsieve_cache:
+        files = pennsieve_cache[folder_path]
+    else:
+        fileUrl = f'{Config.PENNSIEVE_API_HOST}/datasets/{dataset_id}/versions/{version}/files/browse?path={folder_path}'
+        file_response = requests.get(fileUrl)
+        files_info = file_response.json()
+        #print(files_info)
+        if 'files' in files_info:
+            files = files_info['files']
+            if len(files) > 0:
+                pennsieve_cache[folder_path] = files
+
+    return files
+
+def test_scicrunch_and_pennsieve(dataset_id, version, bucket, scicrunch_path):
+    error_response = {
+        'ScicrunchPath': scicrunch_path,
+    }
+
+    folder_path = scicrunch_path.rsplit("/", 1)[0]
+    files = fetchFilesFromPennsieve(dataset_id, version, folder_path)
+    if len(files) > 0:
+        s3file_path = None
+        path_match = False
+        for local_file in files:
+            # Only check segmentation files
+            if 'fileType' in local_file and local_file['fileType'] == 'XML':
+                scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
+                # In case minor difference exists between scicrunch and s3 filename
+                # Usually filename should match with each other, file path may not
+                scicrunch_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', scicrunch_filename)).rsplit(".", 1)[0]
+                local_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', local_file['name'])).rsplit(".", 1)[0]
+                if local_file['name'] == scicrunch_filename or scicrunch_modified in local_modified or local_modified in scicrunch_modified:
+                    s3file_path = local_file['uri'].replace(f's3://{bucket}/{dataset_id}/', '')
+                    # Compare Scicrunch file path with S3 file path mainly the file name
+                    if scicrunch_path == s3file_path:
+                        path_match = True
+                        break
+
+        if not path_match:
+            error_response['Reason'] = 'File path cannot be found on Pennsieve.'
+
+            # Then generate the path mapping between Scicrunch and S3
+            if dataset_id not in path_mapping:
+                path_mapping[dataset_id] = {}
+            path_mapping[dataset_id][scicrunch_path] = s3file_path
+
+            error_response['MappingRequired'] = 'Please check the path mapping file output for more information.'
+            # Check if the file path is known to be inconsistent
+            if scicrunch_path in name_map:
+                error_response['MappingSolved'] = 'This is a known inconsistency issue which has been manually mapped in the sparc api.'
+
+            return error_response
+    else:
+        error_response['Reason'] = 'Folder path cannot be found on Pennsieve.'
+
+        return error_response
+
+# Test object to check for any possible error
+def test_segmentation(dataset_id, version, segmentation_object, bucket):
     global path_mapping
+
+    pennsieve_cache = {}
+    responses = []
+
     error_response = None
     pennsieve_path = None
-    file_path = None
-    name_difference = {}
 
     try:
-        scicrunch_path = obj['dataset']['path']
+        scicrunch_path = segmentation_object['dataset']['path']
         if "files/" not in scicrunch_path:
-            file_path = "files/" + scicrunch_path
             scicrunch_path = "files/" + scicrunch_path
-        else:
-            file_path = scicrunch_path
         # Map name for path
-        if MAPPING_IMPLEMENTATION and file_path in name_map:
-            file_path = name_map[file_path]
+        if MAPPING_IMPLEMENTATION and scicrunch_path in name_map:
+            scicrunch_path = name_map[scicrunch_path]
 
-        query_args = [
-            ('datasetId', id), 
-            ('version', version), 
-            ('path', file_path)
-        ]
-        url = f"{Config.NEUROLUCIDA_HOST}/thumbnail"
-        response = requests.get(url, params=query_args)
-        if response.status_code == 200:
-            return
-        error_response = {
-            'NeuroLucidaPath': scicrunch_path,
-            'Reason': 'Cannot get a valid request from NeuroLucida',
-        }
-        
-        folderPath = file_path.rsplit("/", 1)[0]
-        files = []
-        if folderPath in pennsieve_cache:
-            files = pennsieve_cache[folderPath]
-        else:
-            file_url = f'{Config.PENNSIEVE_API_HOST}/datasets/{id}/versions/{version}/files/browse?path={folderPath}'
-            file_response = requests.get(file_url)
-            files_info = file_response.json()
-            if 'files' in files_info:
-                files = files_info['files']
-
-        if len(files) > 0:
-            pennsieve_cache[folderPath] = files
-            file_path_match = False
-            s3file_path = None
-            for local_file in files:
-                # Only check segmentation files
-                if local_file['fileType'] == 'XML':
-                    scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
-                    # In case minor difference exists between scicrunch and s3 filename
-                    # Usually filename should match with each other, file path may not
-                    scicrunch_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', scicrunch_filename)).rsplit(".", 1)[0]
-                    local_modified = ' '.join(re.findall('[.a-zA-Z0-9]+', local_file['name'])).rsplit(".", 1)[0]
-                    if local_file['name'] == scicrunch_filename or scicrunch_modified in local_modified or local_modified in scicrunch_modified:
-                        s3file_path = local_file['uri'].replace(f's3://{bucket}/{id}/', '')
-                        # Compare Scicrunch file path with S3 file path mainly the file name
-                        if scicrunch_path == s3file_path:
-                            file_path_match = True
-                            break
-                        else:
-                            name_difference = {
-                                'scicrunch': scicrunch_filename, 
-                                's3': s3file_path.rsplit("/", 1)[1]
-                            }
-                
-            if not file_path_match:
-                if len(name_difference) > 0:
-                    error_response['Detail'] = f'Possibly inconsistency between Scicrunch and S3.'
-
-                    # Then generate the path mapping between Scicrunch and S3
-                    if id not in path_mapping:
-                        path_mapping[id] = {}
-                    path_mapping[id][scicrunch_path] = s3file_path
-
-                    error_response['MappingRequired'] = 'Please check the path mapping file output for more information.'
-                    # Check if the file path is known to be inconsistent
-                    if scicrunch_path in name_map:
-                        error_response['MappingSolved'] = 'This is a known inconsistency issue which has been manually mapped in the sparc api.'
-            else:
-                error_response['Detail'] = 'File path is matched. Possibly no thumbnail for this file.'
-        else:
-            error_response['Detail'] = 'Folder path cannot be found on Pennsieve. Please check the file path.'
+        error = test_scicrunch_and_pennsieve(dataset_id, version, bucket, scicrunch_path)
+        if error:
+            responses.append(error)
+        # Following two tests will use the Pennsieve-mapped scicrunch path
+        # If the generated mapping is correct, following errors will not exist
+        # Otherwise, errors will show in the report
+        error2 = test_scicrunch_and_neurolucida(dataset_id, version, scicrunch_path)
+        if error2:
+            responses.append(error2)
+        error3 = test_segmentation_s3file(dataset_id, segmentation_object, bucket, scicrunch_path)
+        if error3:
+            responses.append(error3)
 
     except Exception as e:
-        error_response = {
-            'NeuroLucidaPath': scicrunch_path,
+        responses.append({
+            'ScicrunchPath': scicrunch_path,
             'Reason': str(e),
-        }
+        })
 
-    return error_response
+    return responses
 
-def test_segmentation_list(id, version, obj_list, bucket):
+def test_segmentation_list(dataset_id, version, object_list, bucket):
     global pennsieve_cache
-    SegmentationFound = False
-    SEGMENTATION_FILES = [
-        'application/vnd.mbfbioscience.metadata+xml', 
-        'application/vnd.mbfbioscience.neurolucida+xml'
-    ]
+
     objectErrors = []
     datasetErrors = []
     segmentation_path = []
     redundant_path = []
+
+    SegmentationFound = False
     duplicateFound = False
 
-    for obj in obj_list:
+    for segmentation_object in object_list:
         # Check if the object is a segmentation file
-        mime_type = obj.get('additional_mimetype', NOT_SPECIFIED)
+        mime_type = segmentation_object.get('additional_mimetype', NOT_SPECIFIED)
         if mime_type != NOT_SPECIFIED:
             mime_type = mime_type.get('name')
         if not mime_type:
-            mime_type = obj['mimetype'].get('name', NOT_SPECIFIED)
+            mime_type = segmentation_object['mimetype'].get('name', NOT_SPECIFIED)
 
         if mime_type in SEGMENTATION_FILES:
+            SegmentationFound = True
             # Check for duplicate segmentation
-            full_path = obj['dataset'].get('path', NOT_SPECIFIED)
+            full_path = segmentation_object['dataset'].get('path', NOT_SPECIFIED)
             if full_path not in segmentation_path:
                 segmentation_path.append(full_path)
             else:
                 duplicateFound = True
                 redundant_path.append(full_path)
 
-            SegmentationFound = True
-            error = test_segmentation_thumbnail(id, version, obj, bucket)
-            error2 = test_segmentation_s3file(id, version, obj, bucket)
+            error = test_segmentation(dataset_id, version, segmentation_object, bucket)
             if error:
-                objectErrors.append(error)
-            if error2:
-                objectErrors.append(error2)
+                objectErrors.extend(error)
 
     if duplicateFound:
         datasetErrors.append({
@@ -254,6 +273,7 @@ def test_segmentation_list(id, version, obj_list, bucket):
         'Total': numberOfErrors,
         'Objects': objectErrors,
     }
+
     numberOfInconsistency = 0
     numberOfMapped = 0
     for error in objectErrors:
@@ -267,6 +287,7 @@ def test_segmentation_list(id, version, obj_list, bucket):
             'Mapped': numberOfMapped,
             'Unmapped': numberOfInconsistency - numberOfMapped
         }
+
     return {"FileReports": fileReports, "DatasetErrors": datasetErrors, "SegmentationFound": SegmentationFound}
                 
 #Test the dataset 
@@ -278,28 +299,29 @@ def test_datasets_information(dataset):
         'Errors': [],
         'ObjectErrors': {'Total': 0, 'Objects':[]}
     }
+
     if '_source' in dataset :
         source = dataset['_source']
         if 'item' in source:
             report['Name'] = source['item'].get('name', 'none')
             report['DOI'] = source['item'].get('curie', 'none')
-
         if 'pennsieve' in source and 'version' in source['pennsieve'] and 'identifier' in source['pennsieve']:
-            id = source['pennsieve']['identifier']
+            dataset_id = source['pennsieve']['identifier']
             version = source['pennsieve']['version']['identifier']
-            report['Id'] = id
+            report['Id'] = dataset_id
             report['Version'] = version
             bucket = S3_BUCKET_NAME
             if 'uri' in source['pennsieve']:
                 bucket = extract_bucket_name(source['pennsieve']['uri'])
             if version:
-                obj_list = source['objects'] if 'objects' in source else []
-                obj_reports = test_segmentation_list(id, version, obj_list, bucket)
-                report['ObjectErrors'] = obj_reports['FileReports']
-                report['Errors'].extend(obj_reports["DatasetErrors"])
-                report['Segmentation'] = obj_reports['SegmentationFound']
+                object_list = source['objects'] if 'objects' in source else []
+                object_reports = test_segmentation_list(dataset_id, version, object_list, bucket)
+                report['ObjectErrors'] = object_reports['FileReports']
+                report['Errors'].extend(object_reports["DatasetErrors"])
+                report['Segmentation'] = object_reports['SegmentationFound']
             else:
                 report['Errors'].append('Missing version')
+
     return report
 
 
