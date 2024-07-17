@@ -126,7 +126,7 @@ def test_scicrunch_and_neurolucida(dataset_id, version, scicrunch_path):
 
     return None
 
-def fetchFilesFromPennsieve(dataset_id, version, folder_path):
+def fetch_files_from_pennsieve(dataset_id, version, folder_path):
     global pennsieve_cache
 
     files = []
@@ -151,13 +151,14 @@ def test_scicrunch_and_pennsieve(dataset_id, version, bucket, scicrunch_path):
     }
 
     folder_path = scicrunch_path.rsplit("/", 1)[0]
-    files = fetchFilesFromPennsieve(dataset_id, version, folder_path)
+    files = fetch_files_from_pennsieve(dataset_id, version, folder_path)
     if len(files) > 0:
         s3file_path = None
         path_match = False
         for local_file in files:
-            # Only check segmentation files
-            if 'fileType' in local_file and local_file['fileType'] == 'XML':
+            file_type = local_file.get('fileType')
+            # Only check segmentation XML files
+            if file_type and file_type == 'XML':
                 scicrunch_filename = scicrunch_path.rsplit("/", 1)[1]
                 # In case minor difference exists between scicrunch and s3 filename
                 # Usually filename should match with each other, file path may not
