@@ -129,7 +129,7 @@ def test_plot_thumbnail(dataset_id, plot_object, object_list, s3_bucket):
                 error_response = {
                     'PlotPath': plot_scicrunch_path,
                     'ThumbnailPath': thumbnail_scicrunch_path,
-                    'Reason': f'Thumbnail additional mimetype *** {mime_type} *** not exists in sparc api.',
+                    'Reason': f'Thumbnail additional mimetype *** {mime_type} *** is no longer processed in sparc api.',
                     'UpdateRequired': 'Check following detail for more information.'
                 }
                 # Figure out the correct additional mimetype by using mimetype
