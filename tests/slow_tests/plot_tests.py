@@ -65,8 +65,6 @@ def extract_bucket_name(original_name):
     return original_name.split('/')[2]
 
 def test_plot_thumbnail_s3file(dataset_id, thumbnail_object, s3_bucket):
-    file_path = None
-
     scicrunch_path = thumbnail_object['dataset']['path']
     if "files/" not in scicrunch_path:
         scicrunch_path = "files/" + scicrunch_path
@@ -94,11 +92,12 @@ def test_plot_thumbnail_s3file(dataset_id, thumbnail_object, s3_bucket):
     return None
 
 def test_plot_thumbnail(dataset_id, plot_object, object_list, s3_bucket):
-    file_response = []
-    plot_name = plot_object['name']
-    plot_scicrunch_path = plot_object['dataset']['path']
+    responses = []
+
     thumbnail_name = None
     thumbnail_scicrunch_path = None
+
+    plot_scicrunch_path = plot_object['dataset']['path']
     is_source_of = plot_object['datacite']['isSourceOf'].get('path', NOT_SPECIFIED)
 
     if "files/" not in plot_scicrunch_path:
@@ -115,7 +114,7 @@ def test_plot_thumbnail(dataset_id, plot_object, object_list, s3_bucket):
 
             # Plot thumbnail should be derived from the plot file
             plot_path = thumbnail_object['datacite']['isDerivedFrom'].get('path', NOT_SPECIFIED)
-            if plot_path == NOT_SPECIFIED or plot_name not in plot_path[0]:
+            if plot_path == NOT_SPECIFIED or plot_object['name'] not in plot_path[0]:
                 return [{
                     'PlotPath': plot_scicrunch_path,
                     'ThumbnailPath': thumbnail_scicrunch_path,
@@ -137,17 +136,19 @@ def test_plot_thumbnail(dataset_id, plot_object, object_list, s3_bucket):
                 mime_type = thumbnail_object['mimetype'].get('name', NOT_SPECIFIED)
                 if mime_type in COMMON_TO_THUMBNAIL.keys():
                     error_response['UpdateDetail'] = f'Correct additional mimetype should be *** {COMMON_TO_THUMBNAIL[mime_type]} ***.'
-                file_response.append(error_response)
+                responses.append(error_response)
 
                 # Check if the file exists in s3
                 error = test_plot_thumbnail_s3file(dataset_id, thumbnail_object, s3_bucket)
                 if error:
-                    file_response.append(error)
-                return file_response
+                    responses.append(error)
+
+                return responses
 
 def test_plot_list(dataset_id, object_list, s3_bucket):
     objectErrors = []
     datasetErrors = []
+
     PlotFound = False
 
     for plot_object in object_list:
@@ -169,6 +170,7 @@ def test_plot_list(dataset_id, object_list, s3_bucket):
         'Total': numberOfErrors,
         'Objects': objectErrors,
     }
+
     return {"FileReports": fileReports, "DatasetErrors": datasetErrors, "PlotFound": PlotFound}
                 
 #Test the dataset 

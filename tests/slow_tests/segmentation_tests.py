@@ -208,11 +208,13 @@ def test_segmentation(dataset_id, version, segmentation_object, bucket):
         if MAPPING_IMPLEMENTATION and scicrunch_path in name_map:
             scicrunch_path = name_map[scicrunch_path]
 
+        # This will test if file path on Scicrunch and Pennsieve match the S3 file path on Pennsieve
+        # If not match, it will generate a mapping file to list all required file path changes
         error = test_scicrunch_and_pennsieve(dataset_id, version, bucket, scicrunch_path)
         if error:
             responses.append(error)
-        # Following two tests will use the Pennsieve-mapped scicrunch path
-        # If the generated mapping is correct, following errors will not exist
+        # Following two tests will use the Pennsieve-mapped Scicrunch path (S3 file path)
+        # If the generated mapping is correct, following testing will pass
         # Otherwise, errors will show in the report
         error2 = test_scicrunch_and_neurolucida(dataset_id, version, scicrunch_path)
         if error2:
