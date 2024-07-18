@@ -15,3 +15,4 @@ class Config(object):
     ALGOLIA_INDEX=os.environ['ALGOLIA_INDEX']
     AWS_KEY=os.environ['AWS_KEY']
     AWS_SECRET=os.environ['AWS_SECRET']
+    NEUROLUCIDA_HOST = os.environ.get("NEUROLUCIDA_HOST", "https://sparc.biolucida.net:8081")
