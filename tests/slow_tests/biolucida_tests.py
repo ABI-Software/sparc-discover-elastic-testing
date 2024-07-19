@@ -304,6 +304,16 @@ def testBiolucida(dataset_id, version, biolucida_object, biolucida_id, bucket, m
 
     return responses
 
+def get_mimietype_from_object(biolucida_object):
+    # Check if the object is a biolucida object
+    mime_type = biolucida_object.get('additional_mimetype', NOT_SPECIFIED)
+    if mime_type != NOT_SPECIFIED:
+        mime_type = mime_type.get('name')
+    if not mime_type:
+        mime_type = biolucida_object['mimetype'].get('name', NOT_SPECIFIED)
+
+    return mime_type
+
 def test_biolucida_list(dataset_id, version, object_list, bucket):
     global pennsieveCache
 
@@ -331,7 +341,6 @@ def test_biolucida_list(dataset_id, version, object_list, bucket):
             # A list if ids of all images in the dataset
             biolucida_ids = [image.get('image_id', None) for image in dataset_info['dataset_images']]
 
-    # This is object list from Scicrunch
     for biolucida_object in object_list:
         biolucida = biolucida_object.get('biolucida', NOT_SPECIFIED)
         if biolucida != NOT_SPECIFIED:
@@ -339,14 +348,8 @@ def test_biolucida_list(dataset_id, version, object_list, bucket):
             if biolucida_id:
                 biolucidaObjectFound  = True
                 if biolucida_id in biolucida_ids:
-
+                    mime_type = get_mimietype_from_object(biolucida_object)
                     # Check if the object is a biolucida object
-                    mime_type = biolucida_object.get('additional_mimetype', NOT_SPECIFIED)
-                    if mime_type != NOT_SPECIFIED:
-                        mime_type = mime_type.get('name')
-                    if not mime_type:
-                        mime_type = biolucida_object['mimetype'].get('name', NOT_SPECIFIED)
-
                     if (mime_type in BIOLUCIDA_2D or mime_type in BIOLUCIDA_3D):
                         # Check for duplicate biolucida
                         if biolucida_id in bipresence_ids:
@@ -354,22 +357,68 @@ def test_biolucida_list(dataset_id, version, object_list, bucket):
                             duplicate_biolucida.append(biolucida_id)
                         else:
                             bipresence_ids.append(biolucida_id)
-
-                        # All the names/paths will based on Pennsieve
-                        #   (3d)   name   (2d)  path
-                        # biolucida -> scicrunch -> pennsieve
-                        #     ^                        |
-                        #     |                        |
-                        #     +-----------<------------+
-                        #                name
-
-                        error = testBiolucida(dataset_id, version, biolucida_object, biolucida_id, bucket, mime_type)
-                        if error:
-                            objectErrors.extend(error)
-
-                elif biolucida_id not in biolucida_ids:
+            elif biolucida_id not in biolucida_ids:
                     biolucidaIDMatch = False
                     scicrunch_ids.append(biolucida_id)
+
+    duplicate_cache = {}
+    # Check all the unique biolucida objects
+    for biolucida_object in object_list:
+        biolucida = biolucida_object.get('biolucida', NOT_SPECIFIED)
+        if biolucida != NOT_SPECIFIED:
+            biolucida_id = biolucida.get('identifier')
+            if biolucida_id:
+                if biolucida_id in bipresence_ids and biolucida_id not in duplicate_biolucida:
+                    # All the names/paths will based on Pennsieve
+                    #   (3d)   name   (2d)  path
+                    # biolucida -> scicrunch -> pennsieve
+                    #     ^                        |
+                    #     |                        |
+                    #     +-----------<------------+
+                    #                name
+                    error = testBiolucida(dataset_id, version, biolucida_object, biolucida_id, bucket, mime_type)
+                    if error:
+                        objectErrors.extend(error)
+                elif biolucida_id in duplicate_biolucida:
+                    if biolucida_id not in duplicate_cache:
+                        duplicate_cache[biolucida_id] = []
+                    duplicate_cache[biolucida_id].append(biolucida_object)
+
+    # Check all the duplicate biolucida objects
+    for biolucida_id in list(duplicate_cache.keys()):
+        duplicateObjectErrors = []
+
+        duplicate_count = len(duplicate_cache[biolucida_id])
+        for biolucida_object in duplicate_cache[biolucida_id]:
+            mime_type = get_mimietype_from_object(biolucida_object)
+            # Check if the object is a biolucida object
+            if (mime_type in BIOLUCIDA_2D or mime_type in BIOLUCIDA_3D):
+                error = testBiolucida(dataset_id, version, biolucida_object, biolucida_id, bucket, mime_type)
+                if error:
+                    duplicateObjectErrors.extend(error)
+
+        if len(duplicateObjectErrors) > 0:
+            duplicate_error_count = 0
+            # Count issues caused by Biolucida and Scicrunch name not match
+            for error in duplicateObjectErrors:
+                if 'NameMappingRequired' in error:
+                    duplicate_error_count += 1
+
+            for error in duplicateObjectErrors:
+                if 'NameMappingRequired' in error and 'NameMappingSolved' not in error:
+                    # None of the duplicate objects testing are passed
+                    if duplicate_error_count == duplicate_count:
+                        error['MetadataRequired'] = 'None of the duplicate biolucida metadata is matched with Biolucida information.'
+                    # One or more duplicate objects testing are passed
+                    else:
+                        error['CleanUpRequired'] = 'Please clean up the unmatched duplicate biolucida metadata on Scicrunch.'
+                objectErrors.append(error)
+
+            # Remove mapping if one of duplicate object testing is passed
+            if dataset_id in nameMapping and biolucida_id in nameMapping[dataset_id]:
+                del nameMapping[dataset_id][biolucida_id]
+                if len(nameMapping[dataset_id]) == 0:
+                    del nameMapping[dataset_id]
 
     if biolucidaObjectFound or biolucidaImageFound:
         biolucidaFound = True
@@ -393,29 +442,11 @@ def test_biolucida_list(dataset_id, version, object_list, bucket):
         })
 
     if duplicateFound:
-        # Duplicate objects have same biolucida id but name may be different
-        # Remove the object errors for duplicate images
-        # Remove the name mapping for duplicate images
-        remain_errors = []
-        for error in objectErrors:
-            if error['BiolucidaId'] in duplicate_biolucida and 'Conflict between' in error['Reason']:
-                pass
-            else:
-                remain_errors.append(error)
-        objectErrors = remain_errors
-        
-        if dataset_id in nameMapping:
-            for biolucida_id in duplicate_biolucida:
-                if biolucida_id in nameMapping[dataset_id]:
-                    del nameMapping[dataset_id][biolucida_id]
-            if len(nameMapping[dataset_id]) == 0:
-                del nameMapping[dataset_id]
-
         datasetErrors.append({
             'Reason': 'Duplicate image ids are found on Scicrunch.',
             'Detail': 'Redundant images are found on {ids}.'.format(ids=', '.join(set(duplicate_biolucida))),
             'Total': len(duplicate_biolucida),
-            'Further': 'Same biolucida id but different name may cause further issues on thumbnail or viewer.'
+            'Further': 'Issues may occur on thumbnail or viewer. More detail will be shown in object errors.'
         })
 
     numberOfErrors = len(objectErrors)
@@ -573,20 +604,21 @@ class BiolucidaDatasetFilesTest(unittest.TestCase):
         #     "385",
         #     "287",
         #     # fail
-        #     "345",
         #     "107",
+        #     "389",
+        #     "221",
+        #     "205",
+        #     "65",
+        #     "204",
+        #     "108",
+        #     "178",
+        #     # duplicate
+        #     "345",
         #     "158",
         #     "321",
         #     "265",
         #     "381",
-        #     "389",
-        #     "221",
-        #     "205",
-        #     "373",
-        #     "65",
-        #     "204",
-        #     "108",
-        #     "178"
+        #     "373"
         # ]
 
         # '''
