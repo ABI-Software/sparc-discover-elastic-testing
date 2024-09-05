@@ -34,7 +34,22 @@ Running the fast/nightly tests
 
 Running the slow tests
 ======================
- python -m unittest discover -s tests/slow_tests
+
+Datasets object tests Information
+---------------------------------
+ python -m unittest tests/slow_tests/test_datasets_tests.py
+
+Biolucida tests Information
+---------------------------------
+ python -m unittest tests/slow_tests/biolucida_tests.py
+
+Segmentation tests Information
+---------------------------------
+ python -m unittest tests/slow_tests/segmentation_tests.py
+
+Plot tests Information
+---------------------------------
+ python -m unittest tests/slow_tests/plot_tests.py
 
 Details on slow tests reports
 =============================

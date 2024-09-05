@@ -12,7 +12,8 @@ from tests.config import Config
 
 error_report = {}
 doc_link = 'https://github.com/ABI-Software/scicrunch-knowledge-testing/tree/doc_v1'
-
+#the following should either be a falsy value or a string containg dataset number
+checkDatasetOnly = False
 
 s3 = boto3.client(
     "s3",
@@ -58,14 +59,8 @@ def getDatasets(start, size):
     scicrunch_request = {
         "from": start,
         "size": size,
-#        For checking specific dataset
-#        "query": {
-#            "match": {
-#                "pennsieve.identifier.aggregate": {
-#                    "query": "77"
-#                }
-#           }
-#        },
+        #For checking specific dataset
+
         "_source": [
             "item.curie",
             "item.name",
@@ -74,11 +69,26 @@ def getDatasets(start, size):
             "objects.additional_mimetype",
             "objects.dataset",
             "pennsieve.version",
-            "pennsieve.identifier"
+            "pennsieve.identifier",
+            "pennsieve.uri"
         ]
     }
 
+    if checkDatasetOnly:
+        query = {
+            "match": {
+                "pennsieve.identifier.aggregate": {
+                    "query": checkDatasetOnly
+                }
+           }
+        }
+        scicrunch_request["query"] = query
+
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
+
+
+def extract_bucket_name(original_name):
+    return original_name.split('/')[2]
 
 
 def map_mime_type(mime_type):
@@ -96,13 +106,14 @@ def map_mime_type(mime_type):
     return NOT_SPECIFIED
 
 #Get file header response from s3 bucket
-def getFileResponse(localPath, path, mime_type):
+def getFileResponse(localPath, path, mime_type, bucket):
     try:
         head_response = s3.head_object(
-            Bucket=S3_BUCKET_NAME,
+            Bucket=bucket,
             Key=path,
             RequestPayer="requester"
         )
+
         if head_response and 'ResponseMetadata' in head_response \
             and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
             pass
@@ -202,14 +213,14 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
     return reports
 
 #Test object to check for any possible error
-def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
+def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket):
     dataciteReport = None
     fileResponse = None
 
     if 'dataset' in obj and 'path' in obj['dataset']:
         localPath = obj['dataset']['path']
         path = f"{prefix}/{localPath}"
-        fileResponse = getFileResponse(localPath, path, mime_type)
+        fileResponse = getFileResponse(localPath, path, mime_type, bucket)
         dataciteReport = getDataciteReport(obj_list, obj, mapped_mime_type, localPath)
         if dataciteReport['TotalErrors'] > 0:
             if fileResponse == None:
@@ -228,9 +239,9 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix):
         
     return fileResponse
 
-def test_obj_list(id, version, obj_list, scaffoldTag):
+def test_obj_list(id, version, obj_list, scaffoldTag, bucket):
     objectErrors = []
-    prefix = f"{id}/{version}/files"
+    prefix = f"{id}/files"
     foundScaffold = False
     foundContextInfo = False
     datasetErrors = []
@@ -245,7 +256,7 @@ def test_obj_list(id, version, obj_list, scaffoldTag):
                 foundScaffold = True
             if mapped_mime_type == CONTEXT_FILE:
                 foundContextInfo = True
-            error = testObj(obj_list, obj, mime_type, mapped_mime_type, prefix)
+            error = testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket)
             if error:
                 objectErrors.append(error)
     
@@ -299,10 +310,13 @@ def test_datasets_information(dataset):
             version = source['pennsieve']['version']['identifier']
             report['Id'] = id
             report['Version'] = version
+            bucket = S3_BUCKET_NAME
+            if 'uri' in source['pennsieve']:
+                bucket = extract_bucket_name(source['pennsieve']['uri'])
             if version:
                 if 'objects' in source:
                     obj_list = source['objects']
-                    obj_reports = test_obj_list(id, version, obj_list, scaffoldTag)
+                    obj_reports = test_obj_list(id, version, obj_list, scaffoldTag, bucket)
                     report['ObjectErrors'] = obj_reports['FileReports']
                     report['Errors'].extend(obj_reports["DatasetErrors"])
             else:
@@ -324,7 +338,7 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
         reportOutput = 'reports/error_reports.json'
         reports = {'Tested': 0, 'Failed': 0, 'FailedIds':[], 'Datasets':[]}
 
-                
+
         while keepGoing:
             scicrunch_response = getDatasets(start, size)
             self.assertEqual(200, scicrunch_response.status_code)
@@ -346,7 +360,6 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
                     reports['FailedIds'].append(report['Id'])
                     reports['Datasets'].append(report)
 
-            totalSize = totalSize + len(data['hits']['hits'])
 
         # Generate the report
         reports['Tested'] = totalSize
