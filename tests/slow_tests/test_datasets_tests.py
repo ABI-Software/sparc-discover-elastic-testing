@@ -12,7 +12,7 @@ from tests.config import Config
 
 error_report = {}
 doc_link = 'https://github.com/ABI-Software/scicrunch-knowledge-testing/tree/doc_v1'
-#the following should either be a falsy value or a string containg dataset number
+# The following should either be a falsy value or a string containing dataset number
 checkDatasetOnly = False
 
 s3 = boto3.client(
@@ -31,9 +31,9 @@ SCAFFOLD_VIEW_FILE = 'abi-scaffold-view-file'
 THUMBNAIL_IMAGE = 'abi-thumbnail'
 NOT_SPECIFIED = 'not-specified'
 
-MIMETYPE_WITH_THUMBNAILS = [ PLOT_FILE, SCAFFOLD_FILE, SCAFFOLD_VIEW_FILE]
+MIMETYPE_WITH_THUMBNAILS = [PLOT_FILE, SCAFFOLD_FILE, SCAFFOLD_VIEW_FILE]
 
-TEST_MIME_TYPES = { 
+TEST_MIME_TYPES = {
     'application/x.vnd.abi.context-information+json': CONTEXT_FILE,
     'application/x.vnd.abi.scaffold.meta+json': SCAFFOLD_FILE,
     'application/x.vnd.abi.scaffold.view+json': SCAFFOLD_VIEW_FILE,
@@ -50,7 +50,6 @@ TEST_MIME_TYPES = {
 
 
 def getDatasets(start, size):
-
     headers = {'accept': 'application/json'}
     params = {'api_key': Config.SCICRUNCH_API_KEY}
 
@@ -59,7 +58,7 @@ def getDatasets(start, size):
     scicrunch_request = {
         "from": start,
         "size": size,
-        #For checking specific dataset
+        # For checking specific dataset
 
         "_source": [
             "item.curie",
@@ -80,14 +79,16 @@ def getDatasets(start, size):
                 "pennsieve.identifier.aggregate": {
                     "query": checkDatasetOnly
                 }
-           }
+            }
         }
         scicrunch_request["query"] = query
 
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
 
+
 def extract_bucket_name(original_name):
     return original_name.split('/')[2]
+
 
 def map_mime_type(mime_type):
     if mime_type == '':
@@ -103,7 +104,8 @@ def map_mime_type(mime_type):
 
     return NOT_SPECIFIED
 
-#Get file header response from s3 bucket
+
+# Get file header response from s3 bucket
 def getFileResponse(localPath, path, mime_type, bucket):
     try:
         head_response = s3.head_object(
@@ -113,7 +115,7 @@ def getFileResponse(localPath, path, mime_type, bucket):
         )
 
         if head_response and 'ResponseMetadata' in head_response \
-            and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
+                and 200 == head_response['ResponseMetadata']['HTTPStatusCode']:
             pass
         else:
             return {
@@ -131,38 +133,41 @@ def getFileResponse(localPath, path, mime_type, bucket):
         }
     return None
 
-#Get the mimetype
+
+# Get the mimetype
 def getObjectMimeType(obj):
     mime_type = obj.get('additional_mimetype', NOT_SPECIFIED)
     if mime_type != NOT_SPECIFIED:
         mime_type = mime_type.get('name')
-    return  mime_type
+    return mime_type
 
-#Check if any of the item in isSourceOf is a thumbnail for the object
+
+# Check if any of the item in IsSourceOf is a thumbnail for the object
 def checkForThumbnail(obj, obj_list):
     local_mapped_type = map_mime_type(getObjectMimeType(obj))
     if local_mapped_type == THUMBNAIL_IMAGE:
-        #Thumbnail found
+        # Thumbnail found
         return True
     elif local_mapped_type == SCAFFOLD_VIEW_FILE:
         if 'dataset' in obj and 'path' in obj['dataset']:
             localPath = obj['dataset']['path']
-            #Found view file, check for thumbnail
-            if 'datacite' in obj and 'isSourceOf' in obj['datacite']:
-                isSourceOf = obj['datacite']['isSourceOf']
+            # Found view file, check for thumbnail
+            if 'datacite' in obj and 'IsSourceOf' in obj['datacite']:
+                isSourceOf = obj['datacite']['IsSourceOf']
                 if 'relative' in isSourceOf and 'path' in isSourceOf['relative']:
                     for path in isSourceOf['relative']['path']:
                         actualPath = urllib.parse.urljoin(localPath, path)
                         found = next((i for i, item in enumerate(obj_list) if item['dataset']['path'] == actualPath), None)
                         if found and map_mime_type(getObjectMimeType(obj_list[found])):
                             return True
-    
+
     return False
 
-#Generate report for datacite in the object
+
+# Generate report for datacite in the object
 def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
-    keysToCheck = { 'isDerivedFrom': 0, 'isSourceOf': 0}
-    reports = {'TotalErrors':0, 'ThumbnailError': 'None', 'ItemTested':0, 'isDerivedFrom': [], 'isSourceOf': [] }
+    keysToCheck = {'IsDerivedFrom': 0, 'IsSourceOf': 0}
+    reports = {'TotalErrors': 0, 'ThumbnailError': 'None', 'ItemTested': 0, 'IsDerivedFrom': [], 'IsSourceOf': []}
     thumbnailFound = False
 
     if 'datacite' in obj:
@@ -176,7 +181,7 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                         try:
                             actualPath = urllib.parse.urljoin(filePath, path)
                             found = next((i for i, item in enumerate(obj_list) if item['dataset']['path'] == actualPath), None)
-                            if found == None:
+                            if found is None:
                                 reports[key].append(
                                     {
                                         'RelativePath': path,
@@ -184,9 +189,9 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                                         'ReasonDetails': doc_link + '#reason-cannot-find-the-path'
                                     }
                                 )
-                                reports['TotalErrors'] +=1
-                            elif key == 'isSourceOf':
-                                #Check for thumbnail
+                                reports['TotalErrors'] += 1
+                            elif key == 'IsSourceOf':
+                                # Check for thumbnail
                                 thumbnailFound = checkForThumbnail(obj_list[found], obj_list)
                         except:
                             reports[key].append(
@@ -196,21 +201,22 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                                     'ReasonDetails': doc_link + '#reason-encounter-a-problem-while-looking-for-path'
                                 }
                             )
-                            reports['TotalErrors'] +=1
+                            reports['TotalErrors'] += 1
 
         if mapped_mimetype in MIMETYPE_WITH_THUMBNAILS:
-            if keysToCheck['isSourceOf'] == 0:
-                reports['ThumbnailError'] = 'Missing isSourceOf entry'
+            if keysToCheck['IsSourceOf'] == 0:
+                reports['ThumbnailError'] = 'Missing IsSourceOf entry'
                 reports['ThumbnailErrorDetails'] = doc_link + '#thumbnailerror-missing-issourceof-entry'
-                reports['TotalErrors'] +=1
-            if thumbnailFound == False:
-                reports['ThumbnailError'] = 'Thumbnail not found in isSourceOf'
+                reports['TotalErrors'] += 1
+            if not thumbnailFound:
+                reports['ThumbnailError'] = 'Thumbnail not found in IsSourceOf'
                 reports['ThumbnailErrorDetails'] = doc_link + '#thumbnailerror-thumbnail-not-found-in-issourceof'
-                reports['TotalErrors'] +=1
+                reports['TotalErrors'] += 1
 
     return reports
 
-#Test object to check for any possible error
+
+# Test object to check for any possible error
 def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket):
     dataciteReport = None
     fileResponse = None
@@ -221,7 +227,7 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket):
         fileResponse = getFileResponse(localPath, path, mime_type, bucket)
         dataciteReport = getDataciteReport(obj_list, obj, mapped_mime_type, localPath)
         if dataciteReport['TotalErrors'] > 0:
-            if fileResponse == None:
+            if fileResponse is None:
                 fileResponse = {
                     'Mimetype': mime_type,
                     'Path': localPath,
@@ -232,10 +238,11 @@ def testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket):
             'Mimetype': mime_type,
             'Path': 'Not found',
             'Reason': 'Cannot find path',
-            'Reason': doc_link + '#reason-cannot-find-the-path'
+            'ReasonDetails': doc_link + '#reason-cannot-find-the-path'
         }
-        
+
     return fileResponse
+
 
 def test_obj_list(id, version, obj_list, scaffoldTag, bucket):
     objectErrors = []
@@ -246,7 +253,7 @@ def test_obj_list(id, version, obj_list, scaffoldTag, bucket):
 
     for obj in obj_list:
         mime_type = getObjectMimeType(obj)
-        mapped_mime_type =  map_mime_type(mime_type)
+        mapped_mime_type = map_mime_type(mime_type)
         if mapped_mime_type == NOT_SPECIFIED:
             pass
         else:
@@ -257,24 +264,23 @@ def test_obj_list(id, version, obj_list, scaffoldTag, bucket):
             error = testObj(obj_list, obj, mime_type, mapped_mime_type, prefix, bucket)
             if error:
                 objectErrors.append(error)
-    
-    if foundScaffold == True:
-        if foundContextInfo == False:
+
+    if foundScaffold:
+        if not foundContextInfo:
             datasetErrors.append({
                 'Reason': 'Contextual Information cannot be found while scaffold is present',
                 'Details': doc_link + '#contextual-information-cannot-be-found-while-scaffold-is-present'
             })
-        if scaffoldTag == False:
+        if not scaffoldTag:
             datasetErrors.append({
                 'Reason': 'Scaffold found in objects list but the dataset is not tagged with scaffold (types.item.name)',
                 'Details': doc_link + '#scaffold-found-in-objects-list-but-the-dataset-is-not-tagged-with-scaffold-typesitemname'
             })
-    elif scaffoldTag == True:
+    elif scaffoldTag:
         datasetErrors.append({
             'Reason': 'Dataset is tagged with scaffold (types.item.name) but no scaffold can be found in the list of objects.',
             'Details': doc_link + '#dataset-is-tagged-with-scaffold-typesitemname-but-no-scaffold-can-be-found-in-the-list-of-objects'
         })
-
 
     numberOfErrors = len(objectErrors)
     fileReports = {
@@ -282,8 +288,9 @@ def test_obj_list(id, version, obj_list, scaffoldTag, bucket):
         'Objects': objectErrors
     }
     return {"FileReports": fileReports, "DatasetErrors": datasetErrors}
-                
-#Test the dataset 
+
+
+# Test the dataset
 def test_datasets_information(dataset):
     scaffoldTag = False
     report = {
@@ -291,9 +298,9 @@ def test_datasets_information(dataset):
         'DOI': 'none',
         '_id': dataset['_id'],
         'Errors': [],
-        'ObjectErrors': {'Total': 0, 'Objects':[]}
+        'ObjectErrors': {'Total': 0, 'Objects': []}
     }
-    if '_source' in dataset :
+    if '_source' in dataset:
         source = dataset['_source']
         if 'item' in source:
             report['Name'] = source['item'].get('name', 'none')
@@ -334,8 +341,7 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
         keepGoing = True
         totalSize = 0
         reportOutput = 'reports/error_reports.json'
-        reports = {'Tested': 0, 'Failed': 0, 'FailedIds':[], 'Datasets':[]}
-
+        reports = {'Tested': 0, 'Failed': 0, 'FailedIds': [], 'Datasets': []}
 
         while keepGoing:
             scicrunch_response = getDatasets(start, size)
@@ -343,11 +349,11 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
 
             data = scicrunch_response.json()
 
-            #No more result, stop
+            # No more result, stop
             if size > len(data['hits']['hits']):
                 keepGoing = False
 
-            #keepGoing= False
+            # keepGoing= False
 
             start = start + size
 
@@ -358,7 +364,6 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
                     reports['FailedIds'].append(report['Id'])
                     reports['Datasets'].append(report)
 
-
         # Generate the report
         reports['Tested'] = totalSize
         print(f"Number of datasets tested: {reports['Tested']}")
@@ -366,14 +371,15 @@ class SciCrunchDatasetFilesTest(unittest.TestCase):
         print(f"Number of dataset with erros: {reports['Failed']}")
         if reports['Failed'] > 0:
             print(f"Failed Datasets: {reports['FailedIds']}")
-            
+
         os.makedirs(os.path.dirname(reportOutput), exist_ok=True)
         with open(reportOutput, 'w') as outfile:
             json.dump(reports, outfile, indent=4)
-    
+
         print(f"Full report has been generated at {reportOutput}")
 
         self.assertEqual(0, len(reports['FailedIds']))
+
 
 if __name__ == '__main__':
     unittest.main()
