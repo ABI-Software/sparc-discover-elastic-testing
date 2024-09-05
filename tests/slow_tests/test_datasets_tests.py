@@ -80,6 +80,7 @@ def getDatasets(start, size):
 
     return requests.post(urljoin(scicrunch_host, '_search?preference=abiknowledgetesting'), json=scicrunch_request, params=params, headers=headers)
 
+
 def map_mime_type(mime_type):
     if mime_type == '':
         return NOT_SPECIFIED
@@ -128,7 +129,7 @@ def getObjectMimeType(obj):
         mime_type = mime_type.get('name')
     return  mime_type
 
-#Check if any of the item in isSourceOf is a thumbnail for the object
+#Check if any of the item in IsSourceOf is a thumbnail for the object
 def checkForThumbnail(obj, obj_list):
     local_mapped_type = map_mime_type(getObjectMimeType(obj))
     if local_mapped_type == THUMBNAIL_IMAGE:
@@ -138,8 +139,8 @@ def checkForThumbnail(obj, obj_list):
         if 'dataset' in obj and 'path' in obj['dataset']:
             localPath = obj['dataset']['path']
             #Found view file, check for thumbnail
-            if 'datacite' in obj and 'isSourceOf' in obj['datacite']:
-                isSourceOf = obj['datacite']['isSourceOf']
+            if 'datacite' in obj and 'IsSourceOf' in obj['datacite']:
+                isSourceOf = obj['datacite']['IsSourceOf']
                 if 'relative' in isSourceOf and 'path' in isSourceOf['relative']:
                     for path in isSourceOf['relative']['path']:
                         actualPath = urllib.parse.urljoin(localPath, path)
@@ -151,8 +152,8 @@ def checkForThumbnail(obj, obj_list):
 
 #Generate report for datacite in the object
 def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
-    keysToCheck = { 'isDerivedFrom': 0, 'isSourceOf': 0}
-    reports = {'TotalErrors':0, 'ThumbnailError': 'None', 'ItemTested':0, 'isDerivedFrom': [], 'isSourceOf': [] }
+    keysToCheck = { 'IsDerivedFrom': 0, 'IsSourceOf': 0}
+    reports = {'TotalErrors':0, 'ThumbnailError': 'None', 'ItemTested':0, 'IsDerivedFrom': [], 'IsSourceOf': [] }
     thumbnailFound = False
 
     if 'datacite' in obj:
@@ -175,7 +176,7 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                                     }
                                 )
                                 reports['TotalErrors'] +=1
-                            elif key == 'isSourceOf':
+                            elif key == 'IsSourceOf':
                                 #Check for thumbnail
                                 thumbnailFound = checkForThumbnail(obj_list[found], obj_list)
                         except:
@@ -189,12 +190,12 @@ def getDataciteReport(obj_list, obj, mapped_mimetype, filePath):
                             reports['TotalErrors'] +=1
 
         if mapped_mimetype in MIMETYPE_WITH_THUMBNAILS:
-            if keysToCheck['isSourceOf'] == 0:
-                reports['ThumbnailError'] = 'Missing isSourceOf entry'
+            if keysToCheck['IsSourceOf'] == 0:
+                reports['ThumbnailError'] = 'Missing IsSourceOf entry'
                 reports['ThumbnailErrorDetails'] = doc_link + '#thumbnailerror-missing-issourceof-entry'
                 reports['TotalErrors'] +=1
             if thumbnailFound == False:
-                reports['ThumbnailError'] = 'Thumbnail not found in isSourceOf'
+                reports['ThumbnailError'] = 'Thumbnail not found in IsSourceOf'
                 reports['ThumbnailErrorDetails'] = doc_link + '#thumbnailerror-thumbnail-not-found-in-issourceof'
                 reports['TotalErrors'] +=1
 

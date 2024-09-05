@@ -87,7 +87,7 @@ ObjectErrors
 ------------
 The object errors list provide the details of errors found in the dataset's objects list. These errors generally indicate there are problems in the file path or annotations.
 
-ThumbnailError: Thumbnail not found in isSourceOf
+ThumbnailError: Thumbnail not found in IsSourceOf
 `````````````````````````````````````````````````
 This error occurs when the file is one of the following types::
 
@@ -95,10 +95,10 @@ This error occurs when the file is one of the following types::
  application/x.vnd.abi.scaffold.meta+json
  text/vnd.abi.plot+tab-separated-values
  text/vnd.abi.plot+csv
-Cause of the error: None of the files in the isSourceOf field of this file entry in the manifest has the mimetype - "inode/vnd.abi.plot+thumbnail".
-Action: Check the manifest and make sure thumbnail entries are correctly annotated and added to the isSourceOf field of the corresponding file.
+Cause of the error: None of the files in the IsSourceOf field of this file entry in the manifest has the mimetype - "inode/vnd.abi.plot+thumbnail".
+Action: Check the manifest and make sure thumbnail entries are correctly annotated and added to the IsSourceOf field of the corresponding file.
 
-ThumbnailError: Missing isSourceOf entry
+ThumbnailError: Missing IsSourceOf entry
 ````````````````````````````````````````
 This error occurs when the file is one of the following types::
 
@@ -106,8 +106,8 @@ This error occurs when the file is one of the following types::
  application/x.vnd.abi.scaffold.meta+json
  text/vnd.abi.plot+tab-separated-values
  text/vnd.abi.plot+csv
-Cause of the error: The entry of this file in the manifest does not have any entry or the entry is absent in the isSourceOf field.
-Action: Check the manifest and make sure isSourceOf contains a valid thumbnail entry.
+Cause of the error: The entry of this file in the manifest does not have any entry or the entry is absent in the IsSourceOf field.
+Action: Check the manifest and make sure IsSourceOf contains a valid thumbnail entry.
 
 Reason: An error occurred (404) when calling the HeadObject operation: Not Found
 ````````````````````````````````````````````````````````````````````````````````
