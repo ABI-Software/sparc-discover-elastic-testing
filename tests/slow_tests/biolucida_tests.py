@@ -251,7 +251,7 @@ def testBiolucida(dataset_id, version, biolucida_object, biolucida_id, bucket, m
         localPath = name_map[localPath]
 
     try:
-        biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/image/{biolucida_id}')
+        biolucida_response = requests.get(f'{Config.BIOLUCIDA_ENDPOINT}/image/info/{biolucida_id}')
         if not biolucida_response.status_code == 200:
             return [{
                 'ScicrunchPath': localPath,
